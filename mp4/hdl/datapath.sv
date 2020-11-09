@@ -11,7 +11,11 @@ module datapath
 	 input logic [2:0] id_immmux_sel,
 	 // id_ctl_signals, ex_ctl_signals, mem_ctl_signals, wb_ctl_signals can all be decided by control.sv
 	 // Or, we can use registers (# of vars in control vs. # of registers)
+	 input alumux::alumux1_sel_t ex_alumux1_sel,
+	 input alumux::alumux2_sel_t ex_alumux2_sel,
 	 
+	 input alu_ops ex_aluop,
+	 input branch_funct3_t ex_cmpop,
 	 
 	 // To Control ROM
 	 output rv32i_opcode if_opcode, 
@@ -24,7 +28,7 @@ module datapath
 
 /**************** Signals ****************/
 // IF stage:
-// Inputs TODO: ex_alu_out, ex_br_en, ex_alu_mod2, ex_jmp_op/opcode, i_mem_read (I-Cache)
+// Inputs TODO: ex_alu_mod2, ex_jmp_op/opcode, i_mem_read (I-Cache)
 // Outputs TODO:if_i_mem_data (I-Cache)
 logic load_pc = 1'b1;	// set pc to be always loading
 rv32i_word pcmux1_out, pcmux2_out;
@@ -47,7 +51,14 @@ rv32i_word id_imm;
 // ID/EX:
 rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out, ex_rd, ex_imm;
 
+// EX stage:
+rv32i_word ex_alumux1_out, ex_alumux2_out;
+logic ex_br_en;
+rv32i_word ex_alu_out;
 
+// EX/MEM
+rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_rd;
+logic mem_br_en;
 
 
 /**************** Modules ****************/
@@ -114,7 +125,40 @@ register id_ex_imm_reg(
     .in   (id_imm), .out  (ex_imm)
 );
 
+// EX stage:
+alu ALU(
+	 .aluop (ex_aluop),
+	 .a (ex_alumux1_out),
+	 .b (ex_alumux2_out),
+	 .f (ex_alu_out)
+);
+// TODO: CMP Module
 
+// EX/MEM
+register ex_mem_pc_reg(		// PC Adder + Reg
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_pc_out + 4), .out  (mem_pc_out)
+);
+
+register ex_mem_rd_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_rd), .out  (mem_rd)
+);
+
+register ex_mem_alu_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_alu_out), .out  (mem_alu_out)
+);
+
+register ex_mem_rs2_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_rs2_out), .out  (mem_rs2_out)
+);
+
+register id_ex_br_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_br_en), .out  (mem_br_en)
+);
 
 /**************** MUXES ****************/
 always_comb begin : 
@@ -140,6 +184,25 @@ always_comb begin :
 		  3'b100: id_imm = id_j_imm;
         default: `BAD_MUX_SEL;
 	 endcase
+	 
+	 // ALUMUX1
+	 unique case (ex_alumux1_sel)
+		  alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
+		  alumux::pc_out:  ex_alumux1_out = ex_pc_out;
+        default: `BAD_MUX_SEL;
+	 endcase
+	 
+	 // ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
+	 unique case (ex_alumux2_sel)
+        alumux::i_imm: ex_alumux2_out = ex_imm;
+		  alumux::u_imm: ex_alumux2_out = ex_imm;
+		  alumux::b_imm: ex_alumux2_out = ex_imm;
+		  alumux::s_imm: ex_alumux2_out = ex_imm;
+		  alumux::j_imm: ex_alumux2_out = ex_imm;
+		  alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
+        default: `BAD_MUX_SEL;
+    endcase
+	 
 end
 
 endmodule : datapath
