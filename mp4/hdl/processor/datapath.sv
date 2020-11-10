@@ -35,14 +35,6 @@ module datapath
 
 
 /**************** Signals ****************/
-// Datapath <-> Cache
-assign i_mem_address = if_pc_out;
-assign i_mem_read = 1'b1;
-assign d_mem_wdata = mem_rs2_out;
-assign d_mem_address = mem_alu_out;
-assign d_mem_read = mem_ctrl.mem_read;
-assign d_mem_write = mem_ctrl.mem_write;
-assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
 
 // IF stage:
 logic load_pc = 1'b1;	// set pc to be always loading
@@ -80,7 +72,14 @@ rv32i_word wb_pc_out, wb_rd, wb_imm, wb_alu_out;
 rv32i_word wb_regfilemux_out;
 rv32i_ctrl_word wb_ctrl;
 
-
+// Datapath <-> Cache
+assign i_mem_address = if_pc_out;
+assign i_mem_read = 1'b1;
+assign d_mem_wdata = mem_rs2_out;
+assign d_mem_address = mem_alu_out;
+assign d_mem_read = mem_ctrl.mem_read;
+assign d_mem_write = mem_ctrl.mem_write;
+assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
 
 
 
@@ -273,11 +272,7 @@ always_comb begin
 	 
 	 // ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
 	 unique case (ex_ctrl.alumux2_sel)
-        alumux::i_imm: ex_alumux2_out = ex_imm;
-		  alumux::u_imm: ex_alumux2_out = ex_imm;
-		  alumux::b_imm: ex_alumux2_out = ex_imm;
-		  alumux::s_imm: ex_alumux2_out = ex_imm;
-		  alumux::j_imm: ex_alumux2_out = ex_imm;
+        alumux::imm: ex_alumux2_out = ex_imm;
 		  alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase

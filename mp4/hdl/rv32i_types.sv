@@ -73,22 +73,22 @@ typedef enum bit [2:0] {
 } alu_ops;
 
 typedef struct packed {
-    logic mem_read, mem_write, 
-    logic [3:0] mem_byte_enable,
+    logic mem_read, mem_write;
+    logic [3:0] mem_byte_enable;
 
-    immmux::immmux_sel_t immmux_sel,
-    alumux::alumux1_sel_t alumux1_sel,
-    alumux::alumux2_sel_t alumux2_sel,
-    regfilemux::regfilemux_sel_t regfilemux_sel,
-    pcmux::pcmux_sel_t pcmux_sel,
-    cmpmux::cmpmux_sel_t cmpmux_sel,
+    immmux::immmux_sel_t immmux_sel;
+    alumux::alumux1_sel_t alumux1_sel;
+    alumux::alumux2_sel_t alumux2_sel;
+    regfilemux::regfilemux_sel_t regfilemux_sel;
+    pcmux::pcmux_sel_t pcmux_sel;
+    cmpmux::cmpmux_sel_t cmpmux_sel;
     
-    logic jmp_op,
+    logic jmp_op;
 
-    alu_ops aluop,
-    branch_funct3_t cmpop,
+    alu_ops aluop;
+    branch_funct3_t cmpop;
     
-    logic load_regfile
+    logic load_regfile;
 
 } rv32i_ctrl_word;
 

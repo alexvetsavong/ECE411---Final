@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 /* DO NOT MODIFY. WILL BE OVERRIDDEN BY THE AUTOGRADER. */
 
 package pcmux;
