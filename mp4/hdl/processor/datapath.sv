@@ -8,25 +8,23 @@ module datapath
     input rst,
 	 
 	 /**************** From Control ROM ****************/
-	 // id_ctl_signals, ex_ctl_signals, mem_ctl_signals, wb_ctl_signals can all be decided by control.sv
-	 // Or, we can use registers (# of vars in control vs. # of registers)
-	 
+	 input rv32i_ctrl_word id_ctrl,
+	 /*
+	 unused:
+	 typedef struct packed {
+    logic mem_read, mem_write, 
+    logic [3:0] mem_byte_enable,
+
+} rv32i_ctrl_word;
+*/
+	 /*
 	 // IF
 	 input logic i_mem_read,	// For I-Cache
-	 // ID
-	 input logic [2:0] id_immmux_sel,
-	 // EX
-	 input alumux::alumux1_sel_t ex_alumux1_sel,
-	 input alumux::alumux2_sel_t ex_alumux2_sel,
-	 input alu_ops ex_aluop,
-	 input branch_funct3_t ex_cmpop,
+	 
 	 // MEM
 	 input logic d_mem_write, d_mem_read,	// For D-Cache
 	 input logic [3:0] mem_byte_enable,
-	 // WB
-	 input regfilemux::regfilemux_sel_t wb_regfilemux_sel,
-	 input logic wb_load_regfile,
-	 
+	 */
 	 
 	 /**************** To Control ROM ****************/
 	 output rv32i_opcode if_opcode, 
@@ -42,8 +40,7 @@ module datapath
 // Inputs TODO: ex_jmp_op/opcode, i_mem_read (I-Cache)
 // Outputs TODO:if_i_mem_data (I-Cache)
 logic load_pc = 1'b1;	// set pc to be always loading
-rv32i_word pcmux1_out, pcmux2_out;
-rv32i_word if_pc_out;
+rv32i_word pcmux1_out, pcmux2_out, if_pc_out;
 
 // IF/ID:
 logic load_ir = 1'b1;	// set ir to be always loading
@@ -57,6 +54,7 @@ rv32i_word id_imm;
 
 // ID/EX:
 rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out, ex_rd, ex_imm;
+rv32i_ctrl_word ex_ctrl;
 
 // EX stage:
 rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out;
@@ -66,6 +64,7 @@ rv32i_word ex_alu_out;
 // EX/MEM
 rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_rd, mem_imm, mem_alu_out;
 logic mem_br_en;
+rv32i_ctrl_word mem_ctrl;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
@@ -74,6 +73,7 @@ rv32i_word wb_d_mem_data;	// Output of D-Cache
 
 // WB
 rv32i_word wb_regfilemux_out;
+rv32i_ctrl_word wb_ctrl;
 
 
 
@@ -108,7 +108,7 @@ register if_id_pc_reg(
 // ID Modules
 regfile regfile(
     .clk  (clk),	.rst (rst),
-    .load (wb_load_regfile),
+    .load (wb_ctrl.load_regfile),
     .in   (wb_regfilemux_out),
 	 .src_a (id_rs1),
 	 .src_b (id_rs2),
@@ -143,9 +143,14 @@ register id_ex_imm_reg(
     .in   (id_imm), .out  (ex_imm)
 );
 
+ctrl_reg id_ex_ctrl_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (id_ctrl), .out  (ex_ctrl)
+);
+
 // EX stage:
 alu ALU(
-	 .aluop (ex_aluop),
+	 .aluop (ex_ctrl.aluop),
 	 .a (ex_alumux1_out),
 	 .b (ex_alumux2_out),
 	 .f (ex_alu_out)
@@ -154,7 +159,7 @@ alu ALU(
 cmp CMP(
     .in_a (ex_rs1_out),
 	 .in_b (ex_cmpmux_out),
-	 .cmpop (ex_cmpop),
+	 .cmpop (ex_ctrl.cmpop),
 	 .out (ex_br_en)
 );
 
@@ -189,6 +194,11 @@ register ex_mem_imm_reg(
     .in   (ex_imm), .out  (mem_imm)
 );
 
+ctrl_reg ex_mem_ctrl_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (ex_ctrl), .out  (mem_ctrl)
+);
+
 
 // MEM stage:
 // TODO: Data Cache - takes d_mem_wdata (rs2_out? not sure), and d_mem_address(mem_alu_out)
@@ -220,6 +230,11 @@ register mem_wb_imm_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_imm), .out  (wb_imm)		// Goes to regfilemux
 );
+
+ctrl_reg mem_wb_ctrl_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (mem_ctrl), .out  (wb_ctrl)
+);
 // Register for d_mem_rdata needed? Output of D-Cache can just be wb_d_mem_data.
 
 
@@ -236,13 +251,13 @@ always_comb begin
 	 endcase
 	 
 	 // PCMUX
-	 unique case (ex_opcode)	// Check naming - was jmp_op in diagram
-		  7'b1101111: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
+	 unique case (ex_ctrl.jmp_op)
+		  1'b1: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
         default: pcmux2_out = pcmux1_out;
 	 endcase
 	 
 	 // IMMMUX
-	 unique case (id_immmux_sel)
+	 unique case (id_ctrl.immmux_sel)
 		  immmux::i_imm: id_imm = id_i_imm;
 		  immmux::u_imm: id_imm = id_u_imm;
 		  immmux::b_imm: id_imm = id_b_imm;
@@ -252,14 +267,14 @@ always_comb begin
 	 endcase
 	 
 	 // ALUMUX1
-	 unique case (ex_alumux1_sel)
+	 unique case (ex_ctrl.alumux1_sel)
 		  alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
 		  alumux::pc_out:  ex_alumux1_out = ex_pc_out;
         default: `BAD_MUX_SEL;
 	 endcase
 	 
 	 // ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
-	 unique case (ex_alumux2_sel)
+	 unique case (ex_ctrl.alumux2_sel)
         alumux::i_imm: ex_alumux2_out = ex_imm;
 		  alumux::u_imm: ex_alumux2_out = ex_imm;
 		  alumux::b_imm: ex_alumux2_out = ex_imm;
@@ -270,14 +285,14 @@ always_comb begin
     endcase
 	 
 	 // CMPMUX
-	 unique case (cmpmux_sel)
+	 unique case (ex_ctrl.cmpmux_sel)
 		  cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
 		  cmpmux::i_imm: ex_cmpmux_out = ex_imm;
 		  default: `BAD_MUX_SEL;
 	 endcase
 	 
 	 // REGFILEMUX
-	 unique case (wb_regfilemux_sel)
+	 unique case (wb_ctrl.regfilemux_sel)
         regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
 		  regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
 		  regfilemux::u_imm: wb_regfilemux_out = wb_imm;

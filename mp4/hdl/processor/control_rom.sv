@@ -83,7 +83,7 @@ always_comb begin
             // memory stuff needs to be looked at
             // ctrl.mem_address = alu_out; // figure this out
             ctrl.mem_read = 1'b1;
-            ctrl.mem_byte_enable = rmask// figure this out;
+            ctrl.mem_byte_enable = rmask;// figure this out;
             
             // put case statements in whenever we figure out alignment
             ctrl.regfilemux_sel = lw;
@@ -99,7 +99,7 @@ always_comb begin
             // ctrl.mem_address = alu_out; // figure this out
             // ctrl.wdata = rs2_out;
             ctrl.mem_write = 1'b1;
-            ctrl.mem_byte_enable = wmask// figure this out;
+            ctrl.mem_byte_enable = wmask;// figure this out;
 
             ctrl.load_regfile = 1'b0;
         end
