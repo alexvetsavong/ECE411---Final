@@ -30,10 +30,6 @@ module datapath
 	 output logic d_mem_write, d_mem_read,
 	 output logic [3:0] d_mem_byte_enable
 );
-
-
-
-
 /**************** Signals ****************/
 
 // IF stage:
@@ -66,7 +62,8 @@ rv32i_ctrl_word mem_ctrl;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
-rv32i_word wb_pc_out, wb_rd, wb_imm, wb_alu_out;
+rv32i_word wb_pc_out, wb_imm, wb_alu_out;
+logic [4:0] wb_rd;
 
 // WB
 rv32i_word wb_regfilemux_out;
@@ -81,7 +78,11 @@ assign d_mem_read = mem_ctrl.mem_read;
 assign d_mem_write = mem_ctrl.mem_write;
 assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
 
+/** RVFI Monitor signals here -- need to be set! **/
+logic halt;
+assign halt = pcmux2_out == if_pc_out ? 1'b1 : 1'b0;
 
+/************* End of RVFImon signals *************/
 
 /**************** Modules ****************/
 // IF Modules
@@ -113,11 +114,11 @@ regfile regfile(
     .clk  (clk),	.rst (rst),
     .load (wb_ctrl.load_regfile),
     .in   (wb_regfilemux_out),
-	 .src_a (id_rs1),
-	 .src_b (id_rs2),
-	 .dest (wb_rd),
+	.src_a (id_rs1),
+	.src_b (id_rs2),
+	.dest (wb_rd),
     .reg_a (id_rs1_out),
-	 .reg_b (id_rs2_out)
+	.reg_b (id_rs2_out)
 );
 
 // ID/EX:
@@ -242,59 +243,59 @@ ctrl_reg mem_wb_ctrl_reg(
 always_comb begin
 	 // MUX before PCMUX in the datapath diagram
     unique case (ex_br_en)
-        1'b0: pcmux1_out = if_pc_out + 4;		// Adder in IF stage
-		  1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
-        default: `BAD_MUX_SEL;
-	 endcase
+        1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
+		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
+        // default: `BAD_MUX_SEL;
+	endcase
 	 
 	 // PCMUX
 	 unique case (ex_ctrl.jmp_op)
-		  1'b1: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
+		1'b1: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
         default: pcmux2_out = pcmux1_out;
-	 endcase
+	endcase
 	 
 	 // IMMMUX
-	 unique case (id_ctrl.immmux_sel)
+	unique case (id_ctrl.immmux_sel)
 		  immmux::i_imm: id_imm = id_i_imm;
 		  immmux::u_imm: id_imm = id_u_imm;
 		  immmux::b_imm: id_imm = id_b_imm;
 		  immmux::s_imm: id_imm = id_s_imm;
 		  immmux::j_imm: id_imm = id_j_imm;
         default: `BAD_MUX_SEL;
-	 endcase
+	endcase
 	 
-	 // ALUMUX1
-	 unique case (ex_ctrl.alumux1_sel)
-		  alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
-		  alumux::pc_out:  ex_alumux1_out = ex_pc_out;
+	// ALUMUX1
+	unique case (ex_ctrl.alumux1_sel)
+		alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
+		alumux::pc_out:  ex_alumux1_out = ex_pc_out;
         default: `BAD_MUX_SEL;
-	 endcase
+	endcase
 	 
-	 // ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
-	 unique case (ex_ctrl.alumux2_sel)
+	// ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
+	unique case (ex_ctrl.alumux2_sel)
         alumux::imm: ex_alumux2_out = ex_imm;
-		  alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
+		alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase
 	 
-	 // CMPMUX
-	 unique case (ex_ctrl.cmpmux_sel)
-		  cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
-		  cmpmux::i_imm: ex_cmpmux_out = ex_imm;
-		  default: `BAD_MUX_SEL;
-	 endcase
+	// CMPMUX
+	unique case (ex_ctrl.cmpmux_sel)
+		cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
+		cmpmux::i_imm: ex_cmpmux_out = ex_imm;
+		default: `BAD_MUX_SEL;
+	endcase
 	 
-	 // REGFILEMUX
-	 unique case (wb_ctrl.regfilemux_sel)
+	// REGFILEMUX
+	unique case (wb_ctrl.regfilemux_sel)
         regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
-		  regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
-		  regfilemux::u_imm: wb_regfilemux_out = wb_imm;
-		  regfilemux::lw: wb_regfilemux_out = wb_d_mem_data;	
-		  regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
-		  regfilemux::lb: wb_regfilemux_out = {  {24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};  // sign-ext
-		  regfilemux::lbu: wb_regfilemux_out = { 24'b0, wb_d_mem_data[7:0]};							// zero-ext
-		  regfilemux::lh: wb_regfilemux_out = {  {16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
-		  regfilemux::lhu: wb_regfilemux_out = { 16'b0, wb_d_mem_data[15:0]};
+		regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
+		regfilemux::u_imm: wb_regfilemux_out = wb_imm;
+		regfilemux::lw: wb_regfilemux_out = wb_d_mem_data;	
+		regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
+		regfilemux::lb: wb_regfilemux_out = {  {24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};  // sign-ext
+		regfilemux::lbu: wb_regfilemux_out = { 24'b0, wb_d_mem_data[7:0]};							// zero-ext
+		regfilemux::lh: wb_regfilemux_out = {  {16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
+		regfilemux::lhu: wb_regfilemux_out = { 16'b0, wb_d_mem_data[15:0]};
         default: `BAD_MUX_SEL;
     endcase
 end

@@ -3,8 +3,8 @@ import rv32i_types::*;
 module cmp
 (
     input rv32i_word in_a, in_b,
-	 input branch_funct3_t cmpop,
-	 output logic out
+	input branch_funct3_t cmpop,
+	output logic out
 );
 
 always_comb

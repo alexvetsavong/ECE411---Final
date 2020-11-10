@@ -25,7 +25,7 @@ bit f;
 // This section not required until CP2
 
 assign rvfi.commit = 0; // Set high when a valid instruction is modifying regfile or PC
-assign rvfi.halt = 0;   // Set high when you detect an infinite loop
+assign rvfi.halt = dut.i_datapath.halt;   // Set high when you detect an infinite loop
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 
@@ -57,6 +57,29 @@ Memory:
 
 Please refer to rvfi_itf.sv for more information.
 */
+
+// Instruction and Trap:
+assign rvfi.inst = dut.i_datapath.IR.data;
+assign rvfi.trap = dut.i_control_rom.trap;
+// Regfile:
+assign rvfi.rs1_addr = dut.i_datapath.regfile.src_a;
+assign rvfi.rs2_addr = dut.i_datapath.regfile.src_b;
+assign rvfi.rs1_rdata = dut.i_datapath.regfile.reg_a;
+assign rvfi.rs2_rdata = dut.i_datapath.regfile.reg_b;
+assign rvfi.load_regfile = dut.i_datapath.regfile.load;
+assign rvfi.rd_addr = dut.i_datapath.regfile.dest;
+assign rvfi.rd_wdata = dut.i_datapath.regfile.in;
+
+// PC:
+assign rvfi.pc_rdata = dut.i_datapath.PC.out;
+assign rvfi.pc_wdata = dut.i_datapath.PC.in;
+
+// Memory:
+assign rvfi.mem_addr = dut.i_mem_address;
+assign rvfi.mem_rmask = dut.i_control_rom.rmask;
+assign rvfi.mem_wmask = dut.i_control_rom.wmask;
+assign rvfi.mem_rdata = dut.d_mem_data;
+assign rvfi.mem_wdata = dut.d_mem_wdata;
 
 /**************************** End RVFIMON signals ****************************/
 
@@ -110,7 +133,7 @@ Please refer to tb_itf.sv for more information.
 mp4 dut(
     .clk(itf.clk),
     .rst(itf.rst),
-
+    
     .i_mem_data(itf.inst_rdata),
 
     .i_mem_address(itf.inst_addr),

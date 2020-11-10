@@ -8,22 +8,54 @@ module control_rom(
     output rv32i_ctrl_word ctrl
 );
 logic [3:0] wmask, rmask;
+logic trap;
 
-always_comb begin
-    case(load_funct3_t'(funct3))
-        lb, lbu: rmask = 4'b0001;
-        lh, lhu: rmask = 4'b0011;
-        lw: rmask = 4'b1111;
-        default: rmask = 4'b1111;
-    endcase
-    
-    case(store_funct3_t'(funct3))
-        sb: wmask = 4'b0001;
-        sh: wmask = 4'b0011;
-        sw: wmask = 4'b1111;
-        default: wmask = 4'b1111;
+store_funct3_t store_funct3;
+load_funct3_t load_funct3;
+branch_funct3_t branch_funct3;
+
+assign branch_funct3 = branch_funct3_t'(funct3);
+assign load_funct3 = load_funct3_t'(funct3);
+assign store_funct3 = store_funct3_t'(funct3);
+
+always_comb
+begin : trap_check
+    trap = 0;
+    rmask = '0;
+    wmask = '0;
+
+    case (opcode)
+        op_lui, op_auipc, op_imm, op_reg, op_jal, op_jalr:;
+
+        op_br: begin
+            case (branch_funct3)
+                beq, bne, blt, bge, bltu, bgeu:;
+                default: trap = 1;
+            endcase
+        end
+
+        op_load: begin
+            case (load_funct3)
+                lw: rmask = 4'b1111;
+                lh, lhu: rmask = 4'b0011;
+                lb, lbu: rmask = 4'b0001;
+                default: trap = 1;
+            endcase
+        end
+
+        op_store: begin
+            case (store_funct3)
+                sw: wmask = 4'b1111;
+                sh: wmask = 4'b0011;
+                sb: wmask = 4'b0001;
+                default: trap = 1;
+            endcase
+        end
+
+        default: trap = 1;
     endcase
 end
+
 
 function void set_defaults();
     ctrl.mem_read = 1'b0; 
