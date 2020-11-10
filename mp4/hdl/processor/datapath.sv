@@ -59,7 +59,7 @@ rv32i_word id_imm;
 rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out, ex_rd, ex_imm;
 
 // EX stage:
-rv32i_word ex_alumux1_out, ex_alumux2_out;
+rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out;
 logic ex_br_en;
 rv32i_word ex_alu_out;
 
@@ -150,7 +150,13 @@ alu ALU(
 	 .b (ex_alumux2_out),
 	 .f (ex_alu_out)
 );
-// TODO: CMP Module
+
+cmp CMP(
+    .in_a (ex_rs1_out),
+	 .in_b (ex_cmpmux_out),
+	 .cmpop (ex_cmpop),
+	 .out (ex_br_en)
+);
 
 // EX/MEM
 register ex_mem_pc_reg(		// PC Adder + Reg
@@ -237,11 +243,11 @@ always_comb begin
 	 
 	 // IMMMUX
 	 unique case (id_immmux_sel)
-		  3'b000: id_imm = id_i_imm;
-		  3'b001: id_imm = id_s_imm;
-		  3'b010: id_imm = id_b_imm;
-		  3'b011: id_imm = id_u_imm;
-		  3'b100: id_imm = id_j_imm;
+		  immmux::i_imm: id_imm = id_i_imm;
+		  immmux::u_imm: id_imm = id_u_imm;
+		  immmux::b_imm: id_imm = id_b_imm;
+		  immmux::s_imm: id_imm = id_s_imm;
+		  immmux::j_imm: id_imm = id_j_imm;
         default: `BAD_MUX_SEL;
 	 endcase
 	 
@@ -262,6 +268,13 @@ always_comb begin
 		  alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase
+	 
+	 // CMPMUX
+	 unique case (cmpmux_sel)
+		  cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
+		  cmpmux::i_imm: ex_cmpmux_out = ex_imm;
+		  default: `BAD_MUX_SEL;
+	 endcase
 	 
 	 // REGFILEMUX
 	 unique case (wb_regfilemux_sel)
