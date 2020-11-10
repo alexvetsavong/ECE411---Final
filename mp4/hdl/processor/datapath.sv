@@ -9,36 +9,42 @@ module datapath
 	 
 	 /**************** From Control ROM ****************/
 	 input rv32i_ctrl_word id_ctrl,
-	 /*
-	 unused:
-	 typedef struct packed {
-    logic mem_read, mem_write, 
-    logic [3:0] mem_byte_enable,
-
-} rv32i_ctrl_word;
-*/
-	 /*
-	 // IF
-	 input logic i_mem_read,	// For I-Cache
-	 
-	 // MEM
-	 input logic d_mem_write, d_mem_read,	// For D-Cache
-	 input logic [3:0] mem_byte_enable,
-	 */
-	 
+	  
 	 /**************** To Control ROM ****************/
 	 output rv32i_opcode if_opcode, 
 	 output logic [2:0] if_funct3, 
-	 output logic [6:0] if_funct7
+	 output logic [6:0] if_funct7,
+	 
+	 /**************** From I-Cache ****************/
+	 input logic [31:0] if_i_mem_data,
+	 
+	 /**************** To I-Cache ****************/
+	 output logic [31:0] i_mem_address,
+	 output logic i_mem_read,
+	 
+	 /**************** From D-Cache ****************/
+	 input logic [31:0] wb_d_mem_data,
+	 
+	 /**************** To D-Cache ****************/
+	 output logic [31:0] d_mem_wdata, d_mem_address,
+	 output logic d_mem_write, d_mem_read,
+	 output logic [3:0] d_mem_byte_enable
 );
 
 
 
 
 /**************** Signals ****************/
+// Datapath <-> Cache
+assign i_mem_address = if_pc_out;
+assign i_mem_read = 1'b1;
+assign d_mem_wdata = mem_rs2_out;
+assign d_mem_address = mem_alu_out;
+assign d_mem_read = mem_ctrl.mem_read;
+assign d_mem_write = mem_ctrl.mem_write;
+assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
+
 // IF stage:
-// Inputs TODO: ex_jmp_op/opcode, i_mem_read (I-Cache)
-// Outputs TODO:if_i_mem_data (I-Cache)
 logic load_pc = 1'b1;	// set pc to be always loading
 rv32i_word pcmux1_out, pcmux2_out, if_pc_out;
 
@@ -69,7 +75,6 @@ rv32i_ctrl_word mem_ctrl;
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
 rv32i_word wb_pc_out, wb_rd, wb_imm, wb_alu_out;
-rv32i_word wb_d_mem_data;	// Output of D-Cache
 
 // WB
 rv32i_word wb_regfilemux_out;
@@ -87,7 +92,6 @@ pc_register PC(
 	.in   (pcmux2_out),
 	.out  (if_pc_out)
 );
-// TODO: I-Cache - takes if_pc_out, i_mem_read as input, and outputs if_i_mem_data.
 
 // IF/ID Modules
 ir IR(
@@ -200,11 +204,6 @@ ctrl_reg ex_mem_ctrl_reg(
 );
 
 
-// MEM stage:
-// TODO: Data Cache - takes d_mem_wdata (rs2_out? not sure), and d_mem_address(mem_alu_out)
-// outputs: d_mem_rdata
-
-
 // MEM/WB
 register mem_wb_pc_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
@@ -235,7 +234,6 @@ ctrl_reg mem_wb_ctrl_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_ctrl), .out  (wb_ctrl)
 );
-// Register for d_mem_rdata needed? Output of D-Cache can just be wb_d_mem_data.
 
 
 
