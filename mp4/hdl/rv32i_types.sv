@@ -84,6 +84,7 @@ typedef struct packed {
     cmpmux::cmpmux_sel_t cmpmux_sel;
     
     logic jmp_op;
+    logic br_op;
 
     alu_ops aluop;
     branch_funct3_t cmpop;

@@ -36,7 +36,7 @@ datapath i_datapath(
 	.i_mem_address(i_mem_address),
 	.i_mem_read(i_mem_read),
 
-	.wb_d_mem_data(d_mem_data),
+	.d_mem_data(d_mem_data),
 
 	.d_mem_wdata(d_mem_wdata), 
 	.d_mem_address(d_mem_address),

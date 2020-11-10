@@ -23,7 +23,7 @@ module datapath
 	 output logic i_mem_read,
 	 
 	 /**************** From D-Cache ****************/
-	 input logic [31:0] wb_d_mem_data,
+	 input logic [31:0] d_mem_data,
 	 
 	 /**************** To D-Cache ****************/
 	 output logic [31:0] d_mem_wdata, d_mem_address,
@@ -47,7 +47,8 @@ rv32i_word id_rs1_out, id_rs2_out;
 rv32i_word id_imm;
 
 // ID/EX:
-rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out, ex_rd, ex_imm;
+rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out,  ex_imm;
+logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
 
 // EX stage:
@@ -56,7 +57,8 @@ logic ex_br_en;
 rv32i_word ex_alu_out;
 
 // EX/MEM
-rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_rd, mem_imm, mem_alu_out;
+rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out;
+logic [4:0] mem_rd;
 logic mem_br_en;
 rv32i_ctrl_word mem_ctrl;
 
@@ -66,7 +68,7 @@ rv32i_word wb_pc_out, wb_imm, wb_alu_out;
 logic [4:0] wb_rd;
 
 // WB
-rv32i_word wb_regfilemux_out;
+rv32i_word wb_regfilemux_out, wb_d_mem_data;
 rv32i_ctrl_word wb_ctrl;
 
 // Datapath <-> Cache
@@ -97,11 +99,11 @@ pc_register PC(
 ir IR(
     .clk  (clk), .rst (rst),
     .load (load_ir),
-	 .in (if_i_mem_data),
-	 .funct3 (if_funct3), .funct7 (if_funct7),
-	 .opcode(if_opcode),
-	 .i_imm (id_i_imm), .s_imm (id_s_imm), .b_imm (id_b_imm), .u_imm (id_u_imm), .j_imm (id_j_imm),
-	 .rs1 (id_rs1), .rs2 (id_rs2), .rd (id_rd)
+	.in (if_i_mem_data),
+	.funct3 (if_funct3), .funct7 (if_funct7),
+	.opcode(if_opcode),
+	.i_imm (id_i_imm), .s_imm (id_s_imm), .b_imm (id_b_imm), .u_imm (id_u_imm), .j_imm (id_j_imm),
+	.rs1 (id_rs1), .rs2 (id_rs2), .rd (id_rd)
 );
 
 register if_id_pc_reg(
@@ -117,8 +119,8 @@ regfile regfile(
 	.src_a (id_rs1),
 	.src_b (id_rs2),
 	.dest (wb_rd),
-    .reg_a (id_rs1_out),
-	.reg_b (id_rs2_out)
+    .reg_a (ex_rs1_out),
+	.reg_b (ex_rs2_out)
 );
 
 // ID/EX:
@@ -127,17 +129,17 @@ register id_ex_pc_reg(
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
-register id_ex_rs1_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (id_rs1), .out  (ex_rs1_out)
-);
+// register id_ex_rs1_reg(
+//     .clk  (clk), .rst (rst), .load (1'b1),
+//     .in   (id_rs1_out), .out  (ex_rs1_out)
+// );
 
-register id_ex_rs2_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (id_rs2), .out  (ex_rs2_out)
-);
+// register id_ex_rs2_reg(
+//     .clk  (clk), .rst (rst), .load (1'b1),
+//     .in   (id_rs2_out), .out  (ex_rs2_out)
+// );
 
-register id_ex_rd_reg(
+register #(.width(5)) id_ex_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (id_rd), .out  (ex_rd)
 );
@@ -173,9 +175,9 @@ register ex_mem_pc_reg(		// PC Adder + Reg
     .in   (ex_pc_out + 4), .out  (mem_pc_out)
 );
 
-register ex_mem_rd_reg(
+register #(.width(5)) ex_mem_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (ex_rd), .out  (mem_rd)
+    .in   (ex_rd), .out(mem_rd)
 );
 
 register ex_mem_alu_reg(
@@ -188,7 +190,7 @@ register ex_mem_rs2_reg(
     .in   (ex_rs2_out), .out  (mem_rs2_out)
 );
 
-register ex_mem_br_reg(
+register #(.width(1)) ex_mem_br_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (ex_br_en), .out  (mem_br_en)
 );
@@ -210,7 +212,7 @@ register mem_wb_pc_reg(
     .in   (mem_pc_out), .out  (wb_pc_out)	// Goes to regfilemux
 );
 
-register mem_wb_rd_reg(
+register #(.width(5)) mem_wb_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_rd), .out  (wb_rd)	// Goes to regfile in ID stage
 );
@@ -223,6 +225,11 @@ register mem_wb_br_reg(
 register mem_wb_alu_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_alu_out), .out  (wb_alu_out)
+);
+
+register mem_wb_d_mem_data(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (d_mem_data), .out  (wb_d_mem_data)		// Goes to regfilemux
 );
 
 register mem_wb_imm_reg(
@@ -242,7 +249,7 @@ ctrl_reg mem_wb_ctrl_reg(
 /**************** MUXES ****************/
 always_comb begin
 	 // MUX before PCMUX in the datapath diagram
-    unique case (ex_br_en)
+    unique case (ex_ctrl.br_op & ex_br_en)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
 		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
         // default: `BAD_MUX_SEL;

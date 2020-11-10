@@ -70,6 +70,7 @@ function void set_defaults();
     ctrl.cmpmux_sel = cmpmux::i_imm;
     
     ctrl.jmp_op = 1'b0;
+    ctrl.br_op = 1'b0;
 
     ctrl.aluop = alu_add;
     ctrl.cmpop = beq;
@@ -119,6 +120,7 @@ always_comb begin
         end
         op_br: 
         begin
+            ctrl.br_op = 1'b1;
             ctrl.immmux_sel = immmux::b_imm;
             ctrl.cmpop = branch_funct3_t'(funct3);
             ctrl.cmpmux_sel = cmpmux::i_imm;
