@@ -1,4 +1,4 @@
-module mp3_tb;
+module mp4_tb;
 `timescale 1ns/10ps
 
 /********************* Do not touch for proper compilation *******************/
@@ -14,6 +14,7 @@ source_tb tb(
     .tb_itf(itf),
     .rvfi(rvfi)
 );
+bit f;
 /****************************** End do not touch *****************************/
 
 /************************ Signals necessary for monitor **********************/
@@ -60,12 +61,13 @@ Please refer to rvfi_itf.sv for more information.
 /*
 The following signals need to be set:
 icache signals:
+
     itf.inst_read
     itf.inst_addr
     itf.inst_resp
     itf.inst_rdata
 
-dcache signals:
+//dcache signals:
     itf.data_read
     itf.data_write
     itf.data_mbe
@@ -86,6 +88,7 @@ assign itf.registers = '{default: '0};
 /*
 The following signals need to be connected to your top level:
 Clock and reset signals:
+
     itf.clk
     itf.rst
 
@@ -100,7 +103,22 @@ Burst Memory Ports:
 Please refer to tb_itf.sv for more information.
 */
 
-mp4 dut();
+mp4 dut(
+    .clk(itf.clk),
+    .rst(itf.rst),
+
+    .i_mem_data(itf.inst_rdata),
+
+    .i_mem_address(itf.inst_addr),
+    .i_mem_read(itf.inst_read),
+
+    .d_mem_data(itf.data_rdata),
+    .d_mem_wdata(itf.data_wdata), 
+    .d_mem_address(itf.data_addr),
+    .d_mem_write(itf.data_write), 
+    .d_mem_read(itf.data_read),
+    .d_mem_byte_enable(itf.data_mbe)
+);
 /***************************** End Instantiation *****************************/
 
 endmodule

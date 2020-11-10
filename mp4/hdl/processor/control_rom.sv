@@ -31,7 +31,7 @@ always_comb begin
         op_lui:
         begin
             ctrl.immmux_sel = immmux::u_imm;
-            ctrl.regfilemux_sel = immmux::u_imm; 
+            ctrl.regfilemux_sel = regfilemux::u_imm; 
             ctrl.load_regfile = 1'b1;
         end
         op_auipc: 
@@ -69,7 +69,7 @@ always_comb begin
         begin
             ctrl.immmux_sel = immmux::b_imm;
             ctrl.cmpop = branch_funct3_t'(funct3);
-            ctrl.cmpmux_sel = immmux::i_imm;
+            ctrl.cmpmux_sel = cmpmux::i_imm;
             ctrl.aluop = alu_add;
             ctrl.alumux1_sel = alumux::pc_out;
             ctrl.alumux2_sel = alumux::imm;
@@ -86,7 +86,7 @@ always_comb begin
             ctrl.mem_byte_enable = rmask;// figure this out;
             
             // put case statements in whenever we figure out alignment
-            ctrl.regfilemux_sel = lw;
+            ctrl.regfilemux_sel = regfilemux::lw;
             ctrl.load_regfile = 1'b1;
         end
         op_store:
@@ -133,7 +133,7 @@ always_comb begin
                 default: 
                 begin 
                     ctrl.regfilemux_sel = regfilemux::alu_out;
-                    ctrl.aluop = arith_funct3_t'(funct3);
+                    ctrl.aluop = alu_ops'(funct3);
                 end
             endcase
         end
@@ -167,7 +167,7 @@ always_comb begin
                 default: 
                 begin 
                     ctrl.regfilemux_sel = regfilemux::alu_out;
-                    ctrl.aluop = arith_funct3_t'(funct3);
+                    ctrl.aluop = alu_ops'(funct3);
                 end
             endcase
         end
