@@ -25,8 +25,28 @@ always_comb begin
     endcase
 end
 
+function void set_defaults();
+    ctrl.mem_read = 1'b0; 
+    ctrl.mem_write = 1'b0;
+    ctrl.mem_byte_enable = 4'b1111;
+
+    ctrl.immmux_sel = immmux::i_imm;
+    ctrl.alumux1_sel = alumux::rs1_out;
+    ctrl.alumux2_sel = alumux::imm;
+    ctrl.regfilemux_sel = regfilemux::alu_out;
+    ctrl.pcmux_sel = pcmux::pc_plus4;
+    ctrl.cmpmux_sel = cmpmux::i_imm;
+    
+    ctrl.jmp_op = 1'b0;
+
+    ctrl.aluop = alu_add;
+    ctrl.cmpop = beq;
+    
+    ctrl.load_regfile = 1'b0;
+endfunction
 
 always_comb begin
+    set_defaults();
     case (opcode)
         op_lui:
         begin
@@ -176,6 +196,7 @@ always_comb begin
             /* not going to handle anything with csr (for now) */
         end
 
+        default: set_defaults();
     endcase
 end
 
