@@ -1,3 +1,5 @@
+/* DO NOT MODIFY. WILL BE OVERRIDDEN BY THE AUTOGRADER. */
+
 package rv32i_types;
 // Mux types are in their own packages to prevent identiier collisions
 // e.g. pcmux::pc_plus4 and regfilemux::pc_plus4 are seperate identifiers
@@ -69,6 +71,26 @@ typedef enum bit [2:0] {
     alu_or  = 3'b110,
     alu_and = 3'b111
 } alu_ops;
+
+typedef struct packed {
+    logic mem_read, mem_write, 
+    logic [3:0] mem_byte_enable,
+
+    immmux::immmux_sel_t immmux_sel,
+    alumux::alumux1_sel_t alumux1_sel,
+    alumux::alumux2_sel_t alumux2_sel,
+    regfilemux::regfilemux_sel_t regfilemux_sel,
+    pcmux::pcmux_sel_t pcmux_sel,
+    cmpmux::cmpmux_sel_t cmpmux_sel,
+    
+    logic jmp_op,
+
+    alu_ops aluop,
+    branch_funct3_t cmpop,
+    
+    logic load_regfile
+
+} rv32i_ctrl_word;
 
 
 endpackage : rv32i_types
