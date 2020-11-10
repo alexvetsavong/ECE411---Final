@@ -46,16 +46,8 @@ HALF:   .word 0x0020FFFF
 .section .text
 .align 4
 LD_ST_TEST:
-pcrel_BYTES: auipc x1, %pcrel_hi(BYTES)
-pcrel_HALF: auipc x2, %pcrel_hi(HALF)
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    addi x1, x1, %pcrel_lo(pcrel_BYTES)
-    addi x2, x2, %pcrel_lo(pcrel_HALF)
+    la x1, BYTES
+    la x2, HALF
     nop
     nop
     nop
