@@ -30,55 +30,55 @@ always_comb begin
     case (opcode)
         op_lui:
         begin
-            ctrl.immmux_sel = u_imm;
-            ctrl.regfilemux_sel = u_imm; 
+            ctrl.immmux_sel = immmux::u_imm;
+            ctrl.regfilemux_sel = immmux::u_imm; 
             ctrl.load_regfile = 1'b1;
         end
         op_auipc: 
         begin
-            ctrl.immmux_sel = u_imm;
+            ctrl.immmux_sel = immmux::u_imm;
             ctrl.aluop = alu_add;
-            ctrl.alumux1_sel = pc_out;
-            ctrl.alumux2_sel = imm;
-            ctrl.regfilemux_sel = alu_out;
+            ctrl.alumux1_sel = alumux::pc_out;
+            ctrl.alumux2_sel = alumux::imm;
+            ctrl.regfilemux_sel = regfilemux::alu_out;
             ctrl.load_regfile = 1'b1;
         end
         
         op_jal: 
         begin
-            ctrl.immmux_sel = j_imm;
+            ctrl.immmux_sel = immmux::j_imm;
             ctrl.jmp_op = 1'b1;
             ctrl.aluop = alu_add;
-            ctrl.alumux1_sel = pc_out;
-            ctrl.alumux2_sel = imm;
-            ctrl.regfilemux_sel = pc_plus4;
+            ctrl.alumux1_sel = alumux::pc_out;
+            ctrl.alumux2_sel = alumux::imm;
+            ctrl.regfilemux_sel = regfilemux::pc_plus4;
             ctrl.load_regfile = 1'b1;
         end
         
         op_jalr: 
         begin
-            ctrl.immmux_sel = i_imm;
+            ctrl.immmux_sel = immmux::i_imm;
             ctrl.jmp_op = 1'b1;
             ctrl.aluop = alu_add;
-            ctrl.alumux1_sel = rs1_out;
-            ctrl.alumux2_sel = imm;
-            ctrl.regfilemux_sel = pc_plus4;
+            ctrl.alumux1_sel = alumux::rs1_out;
+            ctrl.alumux2_sel = alumux::imm;
+            ctrl.regfilemux_sel = regfilemux::pc_plus4;
             ctrl.load_regfile = 1'b1;
         end
         op_br: 
         begin
-            ctrl.immmux_sel = b_imm;
+            ctrl.immmux_sel = immmux::b_imm;
             ctrl.cmpop = branch_funct3_t'(funct3);
-            ctrl.cmpmux_sel = i_imm;
+            ctrl.cmpmux_sel = immmux::i_imm;
             ctrl.aluop = alu_add;
-            ctrl.alumux1_sel = pc_out;
-            ctrl.alumux2_sel = imm;
+            ctrl.alumux1_sel = alumux::pc_out;
+            ctrl.alumux2_sel = alumux::imm;
         end
         op_load: 
         begin
-            ctrl.immmux_sel = i_imm;
-            ctrl.alumux1_sel = rs1_out;
-            ctrl.alumux2_sel = imm;
+            ctrl.immmux_sel = immmux::i_imm;
+            ctrl.alumux1_sel = alumux::rs1_out;
+            ctrl.alumux2_sel = alumux::imm;
             
             // memory stuff needs to be looked at
             // ctrl.mem_address = alu_out; // figure this out
@@ -91,9 +91,9 @@ always_comb begin
         end
         op_store:
         begin 
-            ctrl.immmux_sel = s_imm;
-            ctrl.alumux1_sel = rs1_out;
-            ctrl.alumux2_sel = imm;
+            ctrl.immmux_sel = immmux::s_imm;
+            ctrl.alumux1_sel = alumux::rs1_out;
+            ctrl.alumux2_sel = alumux::imm;
             
             // memory stuff
             // ctrl.mem_address = alu_out; // figure this out
@@ -105,22 +105,22 @@ always_comb begin
         end
         op_imm: 
         begin
-            ctrl.immmux_sel = i_imm;
-            ctrl.alumux1_sel = rs1_out;
-            ctrl.alumux2_sel = imm;
+            ctrl.immmux_sel = immmux::i_imm;
+            ctrl.alumux1_sel = alumux::rs1_out;
+            ctrl.alumux2_sel = alumux::imm;
             ctrl.load_regfile = 1'b1;
             case (funct3)
                 slt: 
                 begin 
-                    ctrl.cmpmux_sel = imm;
+                    ctrl.cmpmux_sel = cmpmux::i_imm;
                     ctrl.cmpop = blt;
-                    ctrl.regfilemux_sel = br_en;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
                 end
                 sltu: 
                 begin 
-                    ctrl.cmpmux_sel = imm;
+                    ctrl.cmpmux_sel = cmpmux::i_imm;
                     ctrl.cmpop = bltu; 
-                    ctrl.regfilemux_sel = br_en;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
                 end
                 sr: 
                 begin 
@@ -128,37 +128,37 @@ always_comb begin
                         1'b0: ctrl.aluop = alu_srl;
                         1'b1: ctrl.aluop = alu_sra;
                     endcase
-                    ctrl.regfilemux_sel = alu_out;
+                    ctrl.regfilemux_sel = regfilemux::alu_out;
                 end
                 default: 
                 begin 
-                    ctrl.regfilemux_sel = alu_out;
+                    ctrl.regfilemux_sel = regfilemux::alu_out;
                     ctrl.aluop = arith_funct3_t'(funct3);
                 end
             endcase
         end
         op_reg: 
         begin
-            ctrl.immmux_sel = i_imm;
-            ctrl.alumux1_sel = rs1_out;
-            ctrl.alumux2_sel = rs2_out;
+            ctrl.immmux_sel = immmux::i_imm;
+            ctrl.alumux1_sel = alumux::rs1_out;
+            ctrl.alumux2_sel = alumux::rs2_out;
             ctrl.load_regfile = 1'b1;
             case (funct3)
                 slt: 
                 begin 
-                    ctrl.cmpmux_sel = rs2_out;
+                    ctrl.cmpmux_sel = cmpmux::rs2_out;
                     ctrl.cmpop = blt;
-                    ctrl.regfilemux_sel = br_en;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
                 end
                 sltu: 
                 begin 
-                    ctrl.cmpmux_sel = rs2_out;
+                    ctrl.cmpmux_sel = cmpmux::rs2_out;
                     ctrl.cmpop = bltu; 
-                    ctrl.regfilemux_sel = br_en;
+                    ctrl.regfilemux_sel = regfilemux::br_en;
                 end
                 sr: 
                 begin 
-                    ctrl.regfilemux_sel = alu_out;
+                    ctrl.regfilemux_sel = regfilemux::alu_out;
                     case(funct7[5])
                         1'b0: ctrl.aluop = alu_srl;
                         1'b1: ctrl.aluop = alu_sra;
@@ -166,7 +166,7 @@ always_comb begin
                 end
                 default: 
                 begin 
-                    ctrl.regfilemux_sel = alu_out;
+                    ctrl.regfilemux_sel = regfilemux::alu_out;
                     ctrl.aluop = arith_funct3_t'(funct3);
                 end
             endcase
