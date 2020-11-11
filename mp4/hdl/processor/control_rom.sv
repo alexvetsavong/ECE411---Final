@@ -87,7 +87,7 @@ always_comb begin
             ctrl.br_op = 1'b1;
             ctrl.immmux_sel = immmux::b_imm;
             ctrl.cmpop = branch_funct3_t'(funct3);
-            ctrl.cmpmux_sel = cmpmux::i_imm;
+            ctrl.cmpmux_sel = cmpmux::rs2_out;
             ctrl.aluop = alu_add;
             ctrl.alumux1_sel = alumux::pc_out;
             ctrl.alumux2_sel = alumux::imm;

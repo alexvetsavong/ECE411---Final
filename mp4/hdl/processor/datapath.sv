@@ -79,7 +79,7 @@ rv32i_word wb_d_mem_address;
 assign i_mem_address = if_pc_out;
 assign i_mem_read = 1'b1;
 assign d_mem_wdata = mem_rs2_out;
-assign d_mem_address = mem_alu_out;
+assign d_mem_address = {mem_alu_out[31:2], 2'b0};
 assign d_mem_read = mem_ctrl.mem_read;
 assign d_mem_write = mem_ctrl.mem_write;
 assign d_mem_byte_enable = wmask;
@@ -350,7 +350,7 @@ ctrl_reg mem_wb_ctrl_reg(
 
 register mem_wb_d_mem_addr_reg(
 	.clk  (clk), .rst (rst), .load (1'b1),
-	.in   (d_mem_address), .out (wb_d_mem_address)
+	.in   (mem_alu_out), .out (wb_d_mem_address)
 );
 
 
