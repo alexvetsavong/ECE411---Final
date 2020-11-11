@@ -70,7 +70,7 @@ Please refer to rvfi_itf.sv for more information.
 
 // Instruction and Trap:
 assign rvfi.inst = dut.i_datapath.IR.data;
-assign rvfi.trap = dut.i_control_rom.trap;
+assign rvfi.trap = dut.i_datapath.trap;
 // Regfile:
 assign rvfi.rs1_addr = dut.i_datapath.regfile.src_a;
 assign rvfi.rs2_addr = dut.i_datapath.regfile.src_b;
@@ -86,8 +86,8 @@ assign rvfi.pc_wdata = dut.i_datapath.PC.in;
 
 // Memory:
 assign rvfi.mem_addr = dut.i_mem_address;
-assign rvfi.mem_rmask = dut.i_control_rom.rmask;
-assign rvfi.mem_wmask = dut.i_control_rom.wmask;
+assign rvfi.mem_rmask = dut.i_datapath.rmask;
+assign rvfi.mem_wmask = dut.i_datapath.wmask;
 assign rvfi.mem_rdata = dut.d_mem_data;
 assign rvfi.mem_wdata = dut.d_mem_wdata;
 

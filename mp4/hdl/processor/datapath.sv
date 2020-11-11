@@ -62,6 +62,9 @@ logic [4:0] mem_rd;
 logic mem_br_en;
 rv32i_ctrl_word mem_ctrl;
 
+logic trap;
+logic [3:0] rmask, wmask;
+
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
 rv32i_word wb_pc_out, wb_imm, wb_alu_out;
@@ -70,6 +73,7 @@ logic [4:0] wb_rd;
 // WB
 rv32i_word wb_regfilemux_out, wb_d_mem_data;
 rv32i_ctrl_word wb_ctrl;
+rv32i_word wb_d_mem_address;
 
 // Datapath <-> Cache
 assign i_mem_address = if_pc_out;
@@ -78,7 +82,17 @@ assign d_mem_wdata = mem_rs2_out;
 assign d_mem_address = mem_alu_out;
 assign d_mem_read = mem_ctrl.mem_read;
 assign d_mem_write = mem_ctrl.mem_write;
-assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
+assign d_mem_byte_enable = wmask;
+
+// Casting functions
+store_funct3_t store_funct3;
+load_funct3_t load_funct3;
+branch_funct3_t branch_funct3;
+
+assign branch_funct3 = branch_funct3_t'(mem_ctrl.funct3);
+assign load_funct3 = load_funct3_t'(mem_ctrl.funct3);
+assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
+
 
 /**************** Modules ****************/
 // IF Modules
@@ -199,6 +213,104 @@ ctrl_reg ex_mem_ctrl_reg(
     .in   (ex_ctrl), .out  (mem_ctrl)
 );
 
+// MEM
+always_comb
+begin : trap_check
+    trap = 0;
+    rmask = '0;
+    wmask = '0;
+
+    case (mem_ctrl.opcode)
+        op_lui, op_auipc, op_imm, op_reg, op_jal, op_jalr:;
+
+        op_br: begin
+            case (branch_funct3)
+                beq, bne, blt, bge, bltu, bgeu:;
+                default: trap = 1;
+            endcase
+        end
+
+        op_load: begin
+            case (load_funct3)
+                lw: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b1111;
+                        2'b01: begin
+                            rmask = 4'b1110;
+                            trap = 1'b1;
+                        end
+                        2'b10: begin
+                            rmask = 4'b1100;
+                            trap = 1'b1;
+                        end
+                        2'b11: begin
+                            rmask = 4'b1000;
+                            trap = 1'b1;
+                        end
+                    endcase
+                end
+                lh, lhu: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b0011;
+                        2'b01: rmask = 4'bXXXX;
+                        2'b10: rmask = 4'b1100;
+                        2'b11: rmask = 4'bXXXX;
+                    endcase
+                end
+                lb, lbu: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b0001;
+                        2'b01: rmask = 4'b0010;
+                        2'b10: rmask = 4'b0100;
+                        2'b11: rmask = 4'b1000;
+                    endcase
+                end
+                default: trap = 1;
+            endcase
+        end
+
+        op_store: begin
+            case (store_funct3)
+                sw: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b1111;
+                        2'b01: begin
+                            wmask = 4'b1110;
+                            trap = 1'b1;
+                        end
+                        2'b10: begin
+                            wmask = 4'b1100;
+                            trap = 1'b1;
+                        end
+                        2'b11: begin
+                            wmask = 4'b1000;
+                            trap = 1'b1;
+                        end
+                    endcase
+                end
+                sh: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b0011;
+                        2'b01: wmask = 4'bXXXX;
+                        2'b10: wmask = 4'b1100;
+                        2'b11: wmask = 4'bXXXX;
+                    endcase
+                end
+                sb: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b0001;
+                        2'b01: wmask = 4'b0010;
+                        2'b10: wmask = 4'b0100;
+                        2'b11: wmask = 4'b1000;
+                    endcase
+                end
+                default: trap = 1;
+            endcase
+        end
+
+        default: trap = 1;
+    endcase
+end
 
 // MEM/WB
 register mem_wb_pc_reg(
@@ -234,6 +346,11 @@ register mem_wb_imm_reg(
 ctrl_reg mem_wb_ctrl_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_ctrl), .out  (wb_ctrl)
+);
+
+register mem_wb_d_mem_addr_reg(
+	.clk  (clk), .rst (rst), .load (1'b1),
+	.in   (d_mem_address), .out (wb_d_mem_address)
 );
 
 
@@ -290,13 +407,48 @@ always_comb begin
 	unique case (wb_ctrl.regfilemux_sel)
         regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
 		regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
-		regfilemux::u_imm: wb_regfilemux_out = wb_imm;
-		regfilemux::lw: wb_regfilemux_out = wb_d_mem_data;	
+		regfilemux::u_imm: wb_regfilemux_out = wb_imm;	
 		regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
-		regfilemux::lb: wb_regfilemux_out = {  {24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};  // sign-ext
-		regfilemux::lbu: wb_regfilemux_out = { 24'b0, wb_d_mem_data[7:0]};							// zero-ext
-		regfilemux::lh: wb_regfilemux_out = {  {16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
-		regfilemux::lhu: wb_regfilemux_out = { 16'b0, wb_d_mem_data[15:0]};
+		regfilemux::lw: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = wb_d_mem_data;
+                2'b01: wb_regfilemux_out = {8'b0, wb_d_mem_data[31:8]};
+                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lb: begin 
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {{24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};
+                2'b01: wb_regfilemux_out = {{24{wb_d_mem_data[15]}}, wb_d_mem_data[15:8]};
+                2'b10: wb_regfilemux_out = {{24{wb_d_mem_data[23]}}, wb_d_mem_data[23:16]};
+                2'b11: wb_regfilemux_out = {{24{wb_d_mem_data[31]}}, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lbu: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {24'b0, wb_d_mem_data[7:0]};
+                2'b01: wb_regfilemux_out = {24'b0, wb_d_mem_data[15:8]};
+                2'b10: wb_regfilemux_out = {24'b0, wb_d_mem_data[23:16]};
+                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lh: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {{16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
+                2'b01: wb_regfilemux_out = 32'bX; 
+                2'b10: wb_regfilemux_out = {{16{wb_d_mem_data[31]}}, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = 32'bX;
+            endcase
+        end
+        regfilemux::lhu: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {16'b0, wb_d_mem_data[15:0]};
+                2'b01: wb_regfilemux_out = 32'bX; 
+                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = 32'bX;
+            endcase
+        end
         default: `BAD_MUX_SEL;
     endcase
 end
