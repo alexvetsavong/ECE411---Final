@@ -363,7 +363,7 @@ always_comb begin
     unique case (is_br)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
 		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
-        // default: `BAD_MUX_SEL;
+        default: pcmux1_out = if_pc_out + 4;
 	endcase
 	 
 	 // PCMUX
