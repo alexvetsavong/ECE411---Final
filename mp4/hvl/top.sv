@@ -119,7 +119,7 @@ Please refer to tb_itf.sv for more information.
 /*********************** End Shadow Memory Assignments ***********************/
 
 // Set this to the proper value
-assign itf.registers = '{default: '0};
+assign itf.registers = dut.i_datapath.regfile.data;
 
 /*********************** Instantiate your design here ************************/
 /*
