@@ -24,10 +24,20 @@ bit f;
 /************************ Signals necessary for monitor **********************/
 // This section not required until CP2
 
+logic [2:0] counter = 3'b000;
+logic should_halt;
+
 assign rvfi.commit = 0; // Set high when a valid instruction is modifying regfile or PC
-assign rvfi.halt = dut.i_datapath.halt;   // Set high when you detect an infinite loop
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
+always @(posedge itf.clk iff should_halt) counter <= counter + 1;
+
+assign should_halt = dut.i_datapath.is_br & 
+(dut.i_datapath.pcmux2_out + 8 == dut.i_datapath.if_pc_out) & 
+(dut.i_datapath.if_pc_out == dut.i_datapath.id_pc_out + 4) &
+(dut.i_datapath.if_pc_out == dut.i_datapath.ex_pc_out + 8);
+
+assign rvfi.halt = counter >= 2 ? should_halt : 1'b0;   // Set high when you detect an infinite loop
 
 /*
 The following signals need to be set:

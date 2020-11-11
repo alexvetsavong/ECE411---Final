@@ -80,12 +80,6 @@ assign d_mem_read = mem_ctrl.mem_read;
 assign d_mem_write = mem_ctrl.mem_write;
 assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
 
-/** RVFI Monitor signals here -- need to be set! **/
-logic halt;
-assign halt = pcmux2_out == if_pc_out ? 1'b1 : 1'b0;
-
-/************* End of RVFImon signals *************/
-
 /**************** Modules ****************/
 // IF Modules
 pc_register PC(
@@ -243,13 +237,13 @@ ctrl_reg mem_wb_ctrl_reg(
 );
 
 
-
-
+logic is_br;
+assign is_br = ex_ctrl.br_op & ex_br_en;
 
 /**************** MUXES ****************/
 always_comb begin
 	 // MUX before PCMUX in the datapath diagram
-    unique case (ex_ctrl.br_op & ex_br_en)
+    unique case (is_br)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
 		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
         // default: `BAD_MUX_SEL;
