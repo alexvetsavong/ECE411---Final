@@ -52,7 +52,7 @@ logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
 
 // EX stage:
-rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out;
+rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out;
 logic ex_br_en;
 rv32i_word ex_alu_out;
 
@@ -165,8 +165,8 @@ ctrl_reg id_ex_ctrl_reg(
 // EX stage:
 alu ALU(
 	 .aluop (ex_ctrl.aluop),
-	 .a (ex_alumux1_out),
-	 .b (ex_alumux2_out),
+	 .a (ex_alumux3_out),
+	 .b (ex_alumux4_out),
 	 .f (ex_alu_out)
 );
 
@@ -389,13 +389,52 @@ always_comb begin
         default: `BAD_MUX_SEL;
 	endcase
 	 
-	// ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
+	// ALUMUX2
 	unique case (ex_ctrl.alumux2_sel)
         alumux::imm: ex_alumux2_out = ex_imm;
 		alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase
-	 
+	
+	// TODO: save rs1,rs2 (not out!) to ex stage
+	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
+	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
+	    if (ex_rs1 == mem_rd) begin		// 1 stage away
+		     if (mem_ctrl.opcode == op_load)
+			      ex_alumux3_out = ex_alumux1_out;	// TODO: Need stalling to prevent this from happening!
+			  else
+		         ex_alumux3_out = mem_alu_out;
+		 end
+		 else if (ex_rs1 == wb_rd) begin	// 2 stages away
+		     if (wb_ctrl.opcode == op_load)
+			      ex_alumux3_out = wb_d_mem_data;
+			  else
+		         ex_alumux3_out = wb_alu_out;
+		 end
+		 else begin 	// no data hazards; set default values.
+		     ex_alumux3_out = ex_alumux1_out;
+		 end
+	end
+	
+	// ALUMUX4 - Data Hazards
+	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
+	    if (ex_rs2 == mem_rd) begin
+		     if (mem_ctrl.opcode == op_load)
+			      ex_alumux4_out = ex_alumux2_out;	// TODO: Need stalling to prevent this from happening!
+			  else
+		         ex_alumux4_out = mem_alu_out;
+		 end
+		 else if (ex_rs2 == wb_rd) begin
+		     if (wb_ctrl.opcode == op_load)
+			      ex_alumux4_out = wb_d_mem_data;
+			  else
+		         ex_alumux4_out = wb_alu_out;
+		 end
+		 else begin
+		     ex_alumux4_out = ex_alumux2_out;
+		 end
+	end
+	
 	// CMPMUX
 	unique case (ex_ctrl.cmpmux_sel)
 		cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
