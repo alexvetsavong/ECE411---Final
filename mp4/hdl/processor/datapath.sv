@@ -53,7 +53,7 @@ logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
 
 // EX stage:
-rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out;
+rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out, ex_cmpmux1_out, ex_cmpmux2_out;
 logic ex_br_en;
 rv32i_word ex_alu_out;
 
@@ -172,8 +172,8 @@ alu ALU(
 );
 
 cmp CMP(
-    .in_a (ex_rs1_out),
-	 .in_b (ex_cmpmux_out),
+    .in_a (ex_cmpmux1_out),
+	 .in_b (ex_cmpmux2_out),
 	 .cmpop (ex_ctrl.cmpop),
 	 .out (ex_br_en)
 );
@@ -445,7 +445,45 @@ always_comb begin
 		cmpmux::i_imm: ex_cmpmux_out = ex_imm;
 		default: `BAD_MUX_SEL;
 	endcase
-	 
+	
+   // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
+	 if (ex_rs1 == mem_rd) begin		// 1 stage away
+		  if (mem_ctrl.opcode == op_load)
+				ex_cmpmux1_out = ex_rs1_out;	// TODO: Need stalling to prevent this from happening!
+		  else
+				ex_cmpmux1_out = mem_alu_out;
+	 end
+	 else if (ex_rs1 == wb_rd) begin	// 2 stages away
+		  if (wb_ctrl.opcode == op_load)
+				ex_cmpmux1_out = wb_d_mem_data;
+		  else
+				ex_cmpmux1_out = wb_alu_out;
+	 end
+	 else begin 	// no data hazards; set default values.
+		  ex_cmpmux1_out = ex_rs1_out;
+	 end
+
+	// CMPMUX4 - Inserted between original CMPMUX and CMP.
+	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
+	    if (ex_rs2 == mem_rd) begin
+		     if (mem_ctrl.opcode == op_load)
+			      ex_cmpmux2_out = ex_cmpmux_out;	// TODO: Need stalling to prevent this from happening!
+			  else
+		         ex_cmpmux2_out = mem_alu_out;
+		 end
+		 else if (ex_rs2 == wb_rd) begin
+		     if (wb_ctrl.opcode == op_load)
+			      ex_cmpmux2_out = wb_d_mem_data;
+			  else
+		         ex_cmpmux2_out = wb_alu_out;
+		 end
+		 else begin
+		     ex_cmpmux2_out = ex_cmpmux_out;
+		 end
+	end
+	else
+	    ex_cmpmux2_out = ex_cmpmux_out;
+		
 	// REGFILEMUX
 	unique case (wb_ctrl.regfilemux_sel)
         regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
