@@ -48,6 +48,7 @@ rv32i_word id_imm;
 
 // ID/EX:
 rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out,  ex_imm;
+logic [4:0] ex_rs1, ex_rs2;
 logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
 
@@ -137,15 +138,15 @@ register id_ex_pc_reg(
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
-// register id_ex_rs1_reg(
-//     .clk  (clk), .rst (rst), .load (1'b1),
-//     .in   (id_rs1_out), .out  (ex_rs1_out)
-// );
+register id_ex_rs1_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (id_rs1), .out  (ex_rs1)
+);
 
-// register id_ex_rs2_reg(
-//     .clk  (clk), .rst (rst), .load (1'b1),
-//     .in   (id_rs2_out), .out  (ex_rs2_out)
-// );
+register id_ex_rs2_reg(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (id_rs2), .out  (ex_rs2)
+);
 
 register #(.width(5)) id_ex_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
@@ -396,7 +397,6 @@ always_comb begin
         default: `BAD_MUX_SEL;
     endcase
 	
-	// TODO: save rs1,rs2 (not out!) to ex stage
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
 	    if (ex_rs1 == mem_rd) begin		// 1 stage away
@@ -415,6 +415,8 @@ always_comb begin
 		     ex_alumux3_out = ex_alumux1_out;
 		 end
 	end
+	else
+	    ex_alumux3_out = ex_alumux1_out;
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
@@ -434,6 +436,8 @@ always_comb begin
 		     ex_alumux4_out = ex_alumux2_out;
 		 end
 	end
+	else
+	    ex_alumux4_out = ex_alumux2_out;
 	
 	// CMPMUX
 	unique case (ex_ctrl.cmpmux_sel)
