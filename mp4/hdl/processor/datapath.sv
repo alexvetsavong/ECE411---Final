@@ -23,17 +23,13 @@ module datapath
 	 output logic i_mem_read,
 	 
 	 /**************** From D-Cache ****************/
-	 input logic [31:0] wb_d_mem_data,
+	 input logic [31:0] d_mem_data,
 	 
 	 /**************** To D-Cache ****************/
 	 output logic [31:0] d_mem_wdata, d_mem_address,
 	 output logic d_mem_write, d_mem_read,
 	 output logic [3:0] d_mem_byte_enable
 );
-
-
-
-
 /**************** Signals ****************/
 
 // IF stage:
@@ -51,7 +47,8 @@ rv32i_word id_rs1_out, id_rs2_out;
 rv32i_word id_imm;
 
 // ID/EX:
-rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out, ex_rd, ex_imm;
+rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out,  ex_imm;
+logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
 
 // EX stage:
@@ -60,27 +57,41 @@ logic ex_br_en;
 rv32i_word ex_alu_out;
 
 // EX/MEM
-rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_rd, mem_imm, mem_alu_out;
+rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out;
+logic [4:0] mem_rd;
 logic mem_br_en;
 rv32i_ctrl_word mem_ctrl;
 
+logic trap;
+logic [3:0] rmask, wmask;
+
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
-rv32i_word wb_pc_out, wb_rd, wb_imm, wb_alu_out;
+rv32i_word wb_pc_out, wb_imm, wb_alu_out;
+logic [4:0] wb_rd;
 
 // WB
-rv32i_word wb_regfilemux_out;
+rv32i_word wb_regfilemux_out, wb_d_mem_data;
 rv32i_ctrl_word wb_ctrl;
+rv32i_word wb_d_mem_address;
 
 // Datapath <-> Cache
 assign i_mem_address = if_pc_out;
 assign i_mem_read = 1'b1;
 assign d_mem_wdata = mem_rs2_out;
-assign d_mem_address = mem_alu_out;
+assign d_mem_address = {mem_alu_out[31:2], 2'b0};
 assign d_mem_read = mem_ctrl.mem_read;
 assign d_mem_write = mem_ctrl.mem_write;
-assign d_mem_byte_enable = mem_ctrl.mem_byte_enable;
+assign d_mem_byte_enable = wmask;
 
+// Casting functions
+store_funct3_t store_funct3;
+load_funct3_t load_funct3;
+branch_funct3_t branch_funct3;
+
+assign branch_funct3 = branch_funct3_t'(mem_ctrl.funct3);
+assign load_funct3 = load_funct3_t'(mem_ctrl.funct3);
+assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 
 
 /**************** Modules ****************/
@@ -96,11 +107,11 @@ pc_register PC(
 ir IR(
     .clk  (clk), .rst (rst),
     .load (load_ir),
-	 .in (if_i_mem_data),
-	 .funct3 (if_funct3), .funct7 (if_funct7),
-	 .opcode(if_opcode),
-	 .i_imm (id_i_imm), .s_imm (id_s_imm), .b_imm (id_b_imm), .u_imm (id_u_imm), .j_imm (id_j_imm),
-	 .rs1 (id_rs1), .rs2 (id_rs2), .rd (id_rd)
+	.in (if_i_mem_data),
+	.funct3 (if_funct3), .funct7 (if_funct7),
+	.opcode(if_opcode),
+	.i_imm (id_i_imm), .s_imm (id_s_imm), .b_imm (id_b_imm), .u_imm (id_u_imm), .j_imm (id_j_imm),
+	.rs1 (id_rs1), .rs2 (id_rs2), .rd (id_rd)
 );
 
 register if_id_pc_reg(
@@ -113,11 +124,11 @@ regfile regfile(
     .clk  (clk),	.rst (rst),
     .load (wb_ctrl.load_regfile),
     .in   (wb_regfilemux_out),
-	 .src_a (id_rs1),
-	 .src_b (id_rs2),
-	 .dest (wb_rd),
-    .reg_a (id_rs1_out),
-	 .reg_b (id_rs2_out)
+	.src_a (id_rs1),
+	.src_b (id_rs2),
+	.dest (wb_rd),
+    .reg_a (ex_rs1_out),
+	.reg_b (ex_rs2_out)
 );
 
 // ID/EX:
@@ -126,17 +137,17 @@ register id_ex_pc_reg(
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
-register id_ex_rs1_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (id_rs1), .out  (ex_rs1_out)
-);
+// register id_ex_rs1_reg(
+//     .clk  (clk), .rst (rst), .load (1'b1),
+//     .in   (id_rs1_out), .out  (ex_rs1_out)
+// );
 
-register id_ex_rs2_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (id_rs2), .out  (ex_rs2_out)
-);
+// register id_ex_rs2_reg(
+//     .clk  (clk), .rst (rst), .load (1'b1),
+//     .in   (id_rs2_out), .out  (ex_rs2_out)
+// );
 
-register id_ex_rd_reg(
+register #(.width(5)) id_ex_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (id_rd), .out  (ex_rd)
 );
@@ -172,9 +183,9 @@ register ex_mem_pc_reg(		// PC Adder + Reg
     .in   (ex_pc_out + 4), .out  (mem_pc_out)
 );
 
-register ex_mem_rd_reg(
+register #(.width(5)) ex_mem_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
-    .in   (ex_rd), .out  (mem_rd)
+    .in   (ex_rd), .out(mem_rd)
 );
 
 register ex_mem_alu_reg(
@@ -187,7 +198,7 @@ register ex_mem_rs2_reg(
     .in   (ex_rs2_out), .out  (mem_rs2_out)
 );
 
-register ex_mem_br_reg(
+register #(.width(1)) ex_mem_br_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (ex_br_en), .out  (mem_br_en)
 );
@@ -202,6 +213,104 @@ ctrl_reg ex_mem_ctrl_reg(
     .in   (ex_ctrl), .out  (mem_ctrl)
 );
 
+// MEM
+always_comb
+begin : trap_check
+    trap = 0;
+    rmask = '0;
+    wmask = '0;
+
+    case (mem_ctrl.opcode)
+        op_lui, op_auipc, op_imm, op_reg, op_jal, op_jalr:;
+
+        op_br: begin
+            case (branch_funct3)
+                beq, bne, blt, bge, bltu, bgeu:;
+                default: trap = 1;
+            endcase
+        end
+
+        op_load: begin
+            case (load_funct3)
+                lw: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b1111;
+                        2'b01: begin
+                            rmask = 4'b1110;
+                            trap = 1'b1;
+                        end
+                        2'b10: begin
+                            rmask = 4'b1100;
+                            trap = 1'b1;
+                        end
+                        2'b11: begin
+                            rmask = 4'b1000;
+                            trap = 1'b1;
+                        end
+                    endcase
+                end
+                lh, lhu: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b0011;
+                        2'b01: rmask = 4'bXXXX;
+                        2'b10: rmask = 4'b1100;
+                        2'b11: rmask = 4'bXXXX;
+                    endcase
+                end
+                lb, lbu: begin
+                    case (d_mem_address[1:0])
+                        2'b00: rmask = 4'b0001;
+                        2'b01: rmask = 4'b0010;
+                        2'b10: rmask = 4'b0100;
+                        2'b11: rmask = 4'b1000;
+                    endcase
+                end
+                default: trap = 1;
+            endcase
+        end
+
+        op_store: begin
+            case (store_funct3)
+                sw: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b1111;
+                        2'b01: begin
+                            wmask = 4'b1110;
+                            trap = 1'b1;
+                        end
+                        2'b10: begin
+                            wmask = 4'b1100;
+                            trap = 1'b1;
+                        end
+                        2'b11: begin
+                            wmask = 4'b1000;
+                            trap = 1'b1;
+                        end
+                    endcase
+                end
+                sh: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b0011;
+                        2'b01: wmask = 4'bXXXX;
+                        2'b10: wmask = 4'b1100;
+                        2'b11: wmask = 4'bXXXX;
+                    endcase
+                end
+                sb: begin
+                    case (d_mem_address[1:0])
+                        2'b00: wmask = 4'b0001;
+                        2'b01: wmask = 4'b0010;
+                        2'b10: wmask = 4'b0100;
+                        2'b11: wmask = 4'b1000;
+                    endcase
+                end
+                default: trap = 1;
+            endcase
+        end
+
+        default: trap = 1;
+    endcase
+end
 
 // MEM/WB
 register mem_wb_pc_reg(
@@ -209,7 +318,7 @@ register mem_wb_pc_reg(
     .in   (mem_pc_out), .out  (wb_pc_out)	// Goes to regfilemux
 );
 
-register mem_wb_rd_reg(
+register #(.width(5)) mem_wb_rd_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_rd), .out  (wb_rd)	// Goes to regfile in ID stage
 );
@@ -224,6 +333,11 @@ register mem_wb_alu_reg(
     .in   (mem_alu_out), .out  (wb_alu_out)
 );
 
+register mem_wb_d_mem_data(
+    .clk  (clk), .rst (rst), .load (1'b1),
+    .in   (d_mem_data), .out  (wb_d_mem_data)		// Goes to regfilemux
+);
+
 register mem_wb_imm_reg(
     .clk  (clk), .rst (rst), .load (1'b1),
     .in   (mem_imm), .out  (wb_imm)		// Goes to regfilemux
@@ -234,67 +348,107 @@ ctrl_reg mem_wb_ctrl_reg(
     .in   (mem_ctrl), .out  (wb_ctrl)
 );
 
+register mem_wb_d_mem_addr_reg(
+	.clk  (clk), .rst (rst), .load (1'b1),
+	.in   (mem_alu_out), .out (wb_d_mem_address)
+);
 
 
-
+logic is_br;
+assign is_br = ex_ctrl.br_op & ex_br_en;
 
 /**************** MUXES ****************/
 always_comb begin
 	 // MUX before PCMUX in the datapath diagram
-    unique case (ex_br_en)
-        1'b0: pcmux1_out = if_pc_out + 4;		// Adder in IF stage
-		  1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
-        default: `BAD_MUX_SEL;
-	 endcase
+    unique case (is_br)
+        1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
+		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
+        default: pcmux1_out = if_pc_out + 4;
+	endcase
 	 
 	 // PCMUX
 	 unique case (ex_ctrl.jmp_op)
-		  1'b1: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
+		1'b1: pcmux2_out = {ex_alu_out[31:1], 1'b0};	// JALR: Target addr <- i_imm + rs1, with LSB set to zero.
         default: pcmux2_out = pcmux1_out;
-	 endcase
+	endcase
 	 
 	 // IMMMUX
-	 unique case (id_ctrl.immmux_sel)
+	unique case (id_ctrl.immmux_sel)
 		  immmux::i_imm: id_imm = id_i_imm;
 		  immmux::u_imm: id_imm = id_u_imm;
 		  immmux::b_imm: id_imm = id_b_imm;
 		  immmux::s_imm: id_imm = id_s_imm;
 		  immmux::j_imm: id_imm = id_j_imm;
         default: `BAD_MUX_SEL;
-	 endcase
+	endcase
 	 
-	 // ALUMUX1
-	 unique case (ex_ctrl.alumux1_sel)
-		  alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
-		  alumux::pc_out:  ex_alumux1_out = ex_pc_out;
+	// ALUMUX1
+	unique case (ex_ctrl.alumux1_sel)
+		alumux::rs1_out: ex_alumux1_out = ex_rs1_out;
+		alumux::pc_out:  ex_alumux1_out = ex_pc_out;
         default: `BAD_MUX_SEL;
-	 endcase
+	endcase
 	 
-	 // ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
-	 unique case (ex_ctrl.alumux2_sel)
+	// ALUMUX2 - still uses struct alumux2_sel_t for convenience, although imm values are already selected
+	unique case (ex_ctrl.alumux2_sel)
         alumux::imm: ex_alumux2_out = ex_imm;
-		  alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
+		alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase
 	 
-	 // CMPMUX
-	 unique case (ex_ctrl.cmpmux_sel)
-		  cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
-		  cmpmux::i_imm: ex_cmpmux_out = ex_imm;
-		  default: `BAD_MUX_SEL;
-	 endcase
+	// CMPMUX
+	unique case (ex_ctrl.cmpmux_sel)
+		cmpmux::rs2_out: ex_cmpmux_out = ex_rs2_out;
+		cmpmux::i_imm: ex_cmpmux_out = ex_imm;
+		default: `BAD_MUX_SEL;
+	endcase
 	 
-	 // REGFILEMUX
-	 unique case (wb_ctrl.regfilemux_sel)
+	// REGFILEMUX
+	unique case (wb_ctrl.regfilemux_sel)
         regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
-		  regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
-		  regfilemux::u_imm: wb_regfilemux_out = wb_imm;
-		  regfilemux::lw: wb_regfilemux_out = wb_d_mem_data;	
-		  regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
-		  regfilemux::lb: wb_regfilemux_out = {  {24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};  // sign-ext
-		  regfilemux::lbu: wb_regfilemux_out = { 24'b0, wb_d_mem_data[7:0]};							// zero-ext
-		  regfilemux::lh: wb_regfilemux_out = {  {16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
-		  regfilemux::lhu: wb_regfilemux_out = { 16'b0, wb_d_mem_data[15:0]};
+		regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
+		regfilemux::u_imm: wb_regfilemux_out = wb_imm;	
+		regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
+		regfilemux::lw: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = wb_d_mem_data;
+                2'b01: wb_regfilemux_out = {8'b0, wb_d_mem_data[31:8]};
+                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lb: begin 
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {{24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};
+                2'b01: wb_regfilemux_out = {{24{wb_d_mem_data[15]}}, wb_d_mem_data[15:8]};
+                2'b10: wb_regfilemux_out = {{24{wb_d_mem_data[23]}}, wb_d_mem_data[23:16]};
+                2'b11: wb_regfilemux_out = {{24{wb_d_mem_data[31]}}, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lbu: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {24'b0, wb_d_mem_data[7:0]};
+                2'b01: wb_regfilemux_out = {24'b0, wb_d_mem_data[15:8]};
+                2'b10: wb_regfilemux_out = {24'b0, wb_d_mem_data[23:16]};
+                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lh: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {{16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
+                2'b01: wb_regfilemux_out = 32'bX; 
+                2'b10: wb_regfilemux_out = {{16{wb_d_mem_data[31]}}, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = 32'bX;
+            endcase
+        end
+        regfilemux::lhu: begin
+            unique case (wb_d_mem_address[1:0])
+                2'b00: wb_regfilemux_out = {16'b0, wb_d_mem_data[15:0]};
+                2'b01: wb_regfilemux_out = 32'bX; 
+                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
+                2'b11: wb_regfilemux_out = 32'bX;
+            endcase
+        end
         default: `BAD_MUX_SEL;
     endcase
 end

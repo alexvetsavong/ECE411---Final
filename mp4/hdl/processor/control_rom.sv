@@ -8,30 +8,47 @@ module control_rom(
     output rv32i_ctrl_word ctrl
 );
 logic [3:0] wmask, rmask;
+logic trap;
 
-always_comb begin
-    case(load_funct3_t'(funct3))
-        lb, lbu: rmask = 4'b0001;
-        lh, lhu: rmask = 4'b0011;
-        lw: rmask = 4'b1111;
-        default: rmask = 4'b1111;
-    endcase
+store_funct3_t store_funct3;
+load_funct3_t load_funct3;
+branch_funct3_t branch_funct3;
+
+assign branch_funct3 = branch_funct3_t'(funct3);
+assign load_funct3 = load_funct3_t'(funct3);
+assign store_funct3 = store_funct3_t'(funct3);
+
+
+function void set_defaults();
+    ctrl.mem_read = 1'b0; 
+    ctrl.mem_write = 1'b0;
+
+    ctrl.immmux_sel = immmux::i_imm;
+    ctrl.alumux1_sel = alumux::rs1_out;
+    ctrl.alumux2_sel = alumux::imm;
+    ctrl.regfilemux_sel = regfilemux::alu_out;
+    ctrl.pcmux_sel = pcmux::pc_plus4;
+    ctrl.cmpmux_sel = cmpmux::i_imm;
     
-    case(store_funct3_t'(funct3))
-        sb: wmask = 4'b0001;
-        sh: wmask = 4'b0011;
-        sw: wmask = 4'b1111;
-        default: wmask = 4'b1111;
-    endcase
-end
+    ctrl.jmp_op = 1'b0;
+    ctrl.br_op = 1'b0;
 
+    ctrl.aluop = alu_add;
+    ctrl.cmpop = beq;
+    
+    ctrl.load_regfile = 1'b0;
+
+    ctrl.opcode = opcode;
+    ctrl.funct3 = funct3;
+endfunction
 
 always_comb begin
+    set_defaults();
     case (opcode)
         op_lui:
         begin
             ctrl.immmux_sel = immmux::u_imm;
-            ctrl.regfilemux_sel = immmux::u_imm; 
+            ctrl.regfilemux_sel = regfilemux::u_imm; 
             ctrl.load_regfile = 1'b1;
         end
         op_auipc: 
@@ -67,9 +84,10 @@ always_comb begin
         end
         op_br: 
         begin
+            ctrl.br_op = 1'b1;
             ctrl.immmux_sel = immmux::b_imm;
             ctrl.cmpop = branch_funct3_t'(funct3);
-            ctrl.cmpmux_sel = immmux::i_imm;
+            ctrl.cmpmux_sel = cmpmux::rs2_out;
             ctrl.aluop = alu_add;
             ctrl.alumux1_sel = alumux::pc_out;
             ctrl.alumux2_sel = alumux::imm;
@@ -83,10 +101,16 @@ always_comb begin
             // memory stuff needs to be looked at
             // ctrl.mem_address = alu_out; // figure this out
             ctrl.mem_read = 1'b1;
-            ctrl.mem_byte_enable = rmask;// figure this out;
             
             // put case statements in whenever we figure out alignment
-            ctrl.regfilemux_sel = lw;
+            unique case (funct3)
+                    3'b000: ctrl.regfilemux_sel = regfilemux::lb;
+                    3'b001: ctrl.regfilemux_sel = regfilemux::lh;
+                    3'b010: ctrl.regfilemux_sel = regfilemux::lw;
+                    3'b100: ctrl.regfilemux_sel = regfilemux::lbu;
+                    3'b101: ctrl.regfilemux_sel = regfilemux::lhu;
+                    default: begin end
+                endcase
             ctrl.load_regfile = 1'b1;
         end
         op_store:
@@ -99,7 +123,6 @@ always_comb begin
             // ctrl.mem_address = alu_out; // figure this out
             // ctrl.wdata = rs2_out;
             ctrl.mem_write = 1'b1;
-            ctrl.mem_byte_enable = wmask;// figure this out;
 
             ctrl.load_regfile = 1'b0;
         end
@@ -133,7 +156,7 @@ always_comb begin
                 default: 
                 begin 
                     ctrl.regfilemux_sel = regfilemux::alu_out;
-                    ctrl.aluop = arith_funct3_t'(funct3);
+                    ctrl.aluop = alu_ops'(funct3);
                 end
             endcase
         end
@@ -167,7 +190,7 @@ always_comb begin
                 default: 
                 begin 
                     ctrl.regfilemux_sel = regfilemux::alu_out;
-                    ctrl.aluop = arith_funct3_t'(funct3);
+                    ctrl.aluop = alu_ops'(funct3);
                 end
             endcase
         end
@@ -176,6 +199,7 @@ always_comb begin
             /* not going to handle anything with csr (for now) */
         end
 
+        default: set_defaults();
     endcase
 end
 
