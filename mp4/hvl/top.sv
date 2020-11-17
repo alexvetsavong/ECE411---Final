@@ -39,35 +39,6 @@ assign should_halt = dut.i_datapath.is_br &
 
 assign rvfi.halt = counter >= 2 ? should_halt : 1'b0;   // Set high when you detect an infinite loop
 
-/*
-The following signals need to be set:
-Instruction and trap:
-    rvfi.inst
-    rvfi.trap
-
-Regfile:
-    rvfi.rs1_addr
-    rvfi.rs2_add
-    rvfi.rs1_rdata
-    rvfi.rs2_rdata
-    rvfi.load_regfile
-    rvfi.rd_addr
-    rvfi.rd_wdata
-
-PC:
-    rvfi.pc_rdata
-    rvfi.pc_wdata
-
-Memory:
-    rvfi.mem_addr
-    rvfi.mem_rmask
-    rvfi.mem_wmask
-    rvfi.mem_rdata
-    rvfi.mem_wdata
-
-Please refer to rvfi_itf.sv for more information.
-*/
-
 // Instruction and Trap:
 assign rvfi.inst = dut.i_datapath.IR.data;
 assign rvfi.trap = dut.i_datapath.trap;
@@ -85,12 +56,13 @@ assign rvfi.pc_rdata = dut.i_datapath.PC.out;
 assign rvfi.pc_wdata = dut.i_datapath.PC.in;
 
 // Memory:
+/*
 assign rvfi.mem_addr = dut.i_mem_address;
 assign rvfi.mem_rmask = dut.i_datapath.rmask;
 assign rvfi.mem_wmask = dut.i_datapath.wmask;
 assign rvfi.mem_rdata = dut.d_mem_data;
 assign rvfi.mem_wdata = dut.d_mem_wdata;
-
+*/
 /**************************** End RVFIMON signals ****************************/
 
 /********************* Assign Shadow Memory Signals Here *********************/
@@ -144,17 +116,12 @@ mp4 dut(
     .clk(itf.clk),
     .rst(itf.rst),
     
-    .i_mem_data(itf.inst_rdata),
-
-    .i_mem_address(itf.inst_addr),
-    .i_mem_read(itf.inst_read),
-
-    .d_mem_data(itf.data_rdata),
-    .d_mem_wdata(itf.data_wdata), 
-    .d_mem_address(itf.data_addr),
-    .d_mem_write(itf.data_write), 
-    .d_mem_read(itf.data_read),
-    .d_mem_byte_enable(itf.data_mbe)
+    .pmem_address(itf.mem_addr),
+    .pmem_rdata(itf.mem_rdata),
+    .pmem_wdata(itf.mem_wdata), 
+    .pmem_read(itf.mem_read), 
+    .pmem_write(itf.mem_write),
+    .pmem_resp(itf.mem_resp)
 );
 /***************************** End Instantiation *****************************/
 

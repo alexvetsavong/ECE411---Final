@@ -1,7 +1,7 @@
 import rv32i_types::*;
 
 module cache_top (
-	input clk,
+    input clk,
     input rst,
 
     input rv32i_word i_mem_address,
@@ -21,8 +21,8 @@ module cache_top (
     output logic d_mem_resp,
 
     output rv32i_word pmem_address,
-    input [255:0] pmem_rdata,
-    output [255:0] pmem_wdata,
+    input [63:0] pmem_rdata,
+    output [63:0] pmem_wdata,
     output logic pmem_read,
     output logic pmem_write,
     input logic pmem_resp
