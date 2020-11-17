@@ -99,7 +99,7 @@ arbiter _arbiter (
     .c_pmem_resp(c_pmem_resp)
 );
 
-cacheline_adapter _cacheline_adapter (
+cacheline_adaptor _cacheline_adaptor (
 	.clk (clk),
 	.reset_n (~rst),
 
@@ -117,3 +117,4 @@ cacheline_adapter _cacheline_adapter (
 	.write_o(pmem_write),
 	.resp_i(pmem_resp)
 );
+endmodule 

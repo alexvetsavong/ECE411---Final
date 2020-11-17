@@ -27,10 +27,13 @@ module arbiter (
 );
 
 logic serving_i, serving_d;
-logic sel;
 
 always_ff @(posedge clk) begin
-    if(serving_i === 1'b0 && serving_d === 1'b0) begin
+    if(rst) begin
+	     serving_i <= 1'b0;
+		  serving_d <= 1'b0;
+	 end
+    else if(serving_i === 1'b0 && serving_d === 1'b0) begin
         if(i_pmem_read || i_pmem_write)
             serving_i <= 1'b1;
         else if(d_pmem_read || d_pmem_write)
@@ -90,3 +93,4 @@ always_comb begin
         d_pmem_resp = 1'b0;
     end
 end
+endmodule
