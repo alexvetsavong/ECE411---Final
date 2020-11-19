@@ -86,6 +86,9 @@ rv32i_ctrl_word mem_ctrl;
 logic trap;
 logic [3:0] rmask, wmask;
 
+// MEM
+rv32i_word mem_regfilemux_out;
+
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
 rv32i_word wb_pc_out, wb_imm, wb_alu_out;
@@ -374,6 +377,11 @@ register mem_wb_d_mem_addr_reg(
 	.in   (mem_alu_out), .out (wb_d_mem_address)
 );
 
+register mem_wb_regfilemux_out_reg(
+	.clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+	.in   (mem_regfilemux_out), .out (wb_regfilemux_out)
+);
+
 assign is_br = ex_ctrl.br_op & ex_br_en;
 
 /**************** MUXES ****************/
@@ -393,10 +401,10 @@ always_comb begin
   wb_flush = 1'b0;
 
 	// MUX before PCMUX in the datapath diagram
-  unique case (is_br)
-    1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
-    1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
-    default: pcmux1_out = if_pc_out + 4;
+    unique case (is_br)
+        1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
+        1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
+        default: pcmux1_out = if_pc_out + 4;
 	endcase
 	 
 	 // PCMUX
@@ -440,9 +448,9 @@ always_comb begin
           ex_alumux3_out = mem_alu_out;
 		 end
 		 else if (ex_rs1 == wb_rd) begin	// 2 stages away
-        if (wb_ctrl.opcode == op_load)
-          ex_alumux3_out = wb_d_mem_data;
-        else
+        // if (wb_ctrl.opcode == op_load)
+        //   ex_alumux3_out = wb_d_mem_data;
+        // else
           ex_alumux3_out = wb_alu_out;
 		 end
 		 else begin 	// no data hazards; set default values.
@@ -455,18 +463,18 @@ always_comb begin
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
 	    if (ex_rs2 == mem_rd) begin         
-		     if (mem_ctrl.opcode == op_load) begin
-					ex_alumux4_out = ex_alumux2_out;
-					data_stall = 1'b1;
-			  end
-        else
-		         ex_alumux4_out = mem_alu_out;
+		    if (mem_ctrl.opcode == op_load) begin
+				ex_alumux4_out = ex_alumux2_out;
+				data_stall = 1'b1;
+			end
+            else
+		        ex_alumux4_out = mem_alu_out;
 		 end
 		 else if (ex_rs2 == wb_rd) begin
-		     if (wb_ctrl.opcode == op_load)
-			      ex_alumux4_out = wb_d_mem_data;
-			  else
-		         ex_alumux4_out = wb_alu_out;
+		    // if (wb_ctrl.opcode == op_load)
+			//     ex_alumux4_out = wb_d_mem_data;
+			// else
+		    ex_alumux4_out = wb_alu_out;
 		 end
 		 else begin
 		     ex_alumux4_out = ex_alumux2_out;
@@ -485,17 +493,17 @@ always_comb begin
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
 	 if (ex_rs1 == mem_rd) begin		// 1 stage away
 		  if (mem_ctrl.opcode == op_load) begin
-		      data_stall = 1'b1;
-				ex_cmpmux1_out = ex_rs1_out;
+		    data_stall = 1'b1;
+			ex_cmpmux1_out = ex_rs1_out;
 		  end
       else
 				ex_cmpmux1_out = mem_alu_out;
 	 end
 	 else if (ex_rs1 == wb_rd) begin	// 2 stages away
-		  if (wb_ctrl.opcode == op_load)
-				ex_cmpmux1_out = wb_d_mem_data;
-		  else
-				ex_cmpmux1_out = wb_alu_out;
+		//   if (wb_ctrl.opcode == op_load)
+		// 		ex_cmpmux1_out = wb_d_mem_data;
+		//   else
+		ex_cmpmux1_out = wb_alu_out;
 	 end
 	 else begin 	// no data hazards; set default values.
 		  ex_cmpmux1_out = ex_rs1_out;
@@ -512,10 +520,10 @@ always_comb begin
 		         ex_cmpmux2_out = mem_alu_out;
 		 end
 		 else if (ex_rs2 == wb_rd) begin
-		     if (wb_ctrl.opcode == op_load)
-			      ex_cmpmux2_out = wb_d_mem_data;
-			  else
-		         ex_cmpmux2_out = wb_alu_out;
+        //  if (wb_ctrl.opcode == op_load)
+        //       ex_cmpmux2_out = wb_d_mem_data;
+        //   else
+            ex_cmpmux2_out = wb_alu_out;
 		 end
 		 else begin
 		     ex_cmpmux2_out = ex_cmpmux_out;
@@ -525,49 +533,49 @@ always_comb begin
 	    ex_cmpmux2_out = ex_cmpmux_out;
 		
 	// REGFILEMUX
-	unique case (wb_ctrl.regfilemux_sel)
-        regfilemux::alu_out: wb_regfilemux_out = wb_alu_out;
-		regfilemux::br_en: wb_regfilemux_out = wb_br_en;	// already ZEXTed
-		regfilemux::u_imm: wb_regfilemux_out = wb_imm;	
-		regfilemux::pc_plus4: wb_regfilemux_out = wb_pc_out;	// already +4'ed in EX stage
+	unique case (mem_ctrl.regfilemux_sel)
+        regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
+		regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en};	// already ZEXTed
+		regfilemux::u_imm: mem_regfilemux_out = mem_imm;	
+		regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out;	        // already +4'ed in EX stage
 		regfilemux::lw: begin
-            unique case (wb_d_mem_address[1:0])
-                2'b00: wb_regfilemux_out = wb_d_mem_data;
-                2'b01: wb_regfilemux_out = {8'b0, wb_d_mem_data[31:8]};
-                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
-                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            unique case (d_mem_address[1:0])
+                2'b00: mem_regfilemux_out = d_mem_data;
+                2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
+                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
             endcase
         end
         regfilemux::lb: begin 
-            unique case (wb_d_mem_address[1:0])
-                2'b00: wb_regfilemux_out = {{24{wb_d_mem_data[7]}}, wb_d_mem_data[7:0]};
-                2'b01: wb_regfilemux_out = {{24{wb_d_mem_data[15]}}, wb_d_mem_data[15:8]};
-                2'b10: wb_regfilemux_out = {{24{wb_d_mem_data[23]}}, wb_d_mem_data[23:16]};
-                2'b11: wb_regfilemux_out = {{24{wb_d_mem_data[31]}}, wb_d_mem_data[31:24]};
+            unique case (d_mem_address[1:0])
+                2'b00: mem_regfilemux_out = {{24{d_mem_data[7]}}, d_mem_data[7:0]};
+                2'b01: mem_regfilemux_out = {{24{d_mem_data[15]}}, d_mem_data[15:8]};
+                2'b10: mem_regfilemux_out = {{24{d_mem_data[23]}}, d_mem_data[23:16]};
+                2'b11: mem_regfilemux_out = {{24{d_mem_data[31]}}, d_mem_data[31:24]};
             endcase
         end
         regfilemux::lbu: begin
-            unique case (wb_d_mem_address[1:0])
-                2'b00: wb_regfilemux_out = {24'b0, wb_d_mem_data[7:0]};
-                2'b01: wb_regfilemux_out = {24'b0, wb_d_mem_data[15:8]};
-                2'b10: wb_regfilemux_out = {24'b0, wb_d_mem_data[23:16]};
-                2'b11: wb_regfilemux_out = {24'b0, wb_d_mem_data[31:24]};
+            unique case (d_mem_address[1:0])
+                2'b00: mem_regfilemux_out = {24'b0, d_mem_data[7:0]};
+                2'b01: mem_regfilemux_out = {24'b0, d_mem_data[15:8]};
+                2'b10: mem_regfilemux_out = {24'b0, d_mem_data[23:16]};
+                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
             endcase
         end
         regfilemux::lh: begin
-            unique case (wb_d_mem_address[1:0])
-                2'b00: wb_regfilemux_out = {{16{wb_d_mem_data[15]}}, wb_d_mem_data[15:0]};
-                2'b01: wb_regfilemux_out = 32'bX; 
-                2'b10: wb_regfilemux_out = {{16{wb_d_mem_data[31]}}, wb_d_mem_data[31:16]};
-                2'b11: wb_regfilemux_out = 32'bX;
+            unique case (d_mem_address[1:0])
+                2'b00: mem_regfilemux_out = {{16{d_mem_data[15]}}, d_mem_data[15:0]};
+                2'b01: mem_regfilemux_out = 32'bX; 
+                2'b10: mem_regfilemux_out = {{16{d_mem_data[31]}}, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = 32'bX;
             endcase
         end
         regfilemux::lhu: begin
-            unique case (wb_d_mem_address[1:0])
-                2'b00: wb_regfilemux_out = {16'b0, wb_d_mem_data[15:0]};
-                2'b01: wb_regfilemux_out = 32'bX; 
-                2'b10: wb_regfilemux_out = {16'b0, wb_d_mem_data[31:16]};
-                2'b11: wb_regfilemux_out = 32'bX;
+            unique case (d_mem_address[1:0])
+                2'b00: mem_regfilemux_out = {16'b0, d_mem_data[15:0]};
+                2'b01: mem_regfilemux_out = 32'bX; 
+                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = 32'bX;
             endcase
         end
         default: `BAD_MUX_SEL;
