@@ -38,7 +38,7 @@ always_ff @(posedge clk)
 begin
     if (rst)
     begin
-        data <= '0;
+        data <= {25'b0, 7'b0010011};
     end
     else if (load == 1)
     begin
