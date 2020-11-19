@@ -16,6 +16,7 @@ module datapath
 	 output logic [6:0] if_funct7,
 	 
 	 /**************** From I-Cache ****************/
+	 input logic i_mem_resp,
 	 input logic [31:0] if_i_mem_data,
 	 
 	 /**************** To I-Cache ****************/
@@ -23,21 +24,40 @@ module datapath
 	 output logic i_mem_read,
 	 
 	 /**************** From D-Cache ****************/
+	 input logic d_mem_resp,
 	 input logic [31:0] d_mem_data,
-	 
+
 	 /**************** To D-Cache ****************/
 	 output logic [31:0] d_mem_wdata, d_mem_address,
 	 output logic d_mem_write, d_mem_read,
 	 output logic [3:0] d_mem_byte_enable
 );
 /**************** Signals ****************/
+logic is_br = 1'b0;
+logic ms_flush;
+
+logic if_flush;
+logic id_flush;
+logic ex_flush;
+logic mem_flush;
+logic wb_flush;
+
+// misspeculation flush signal
+assign ms_flush = is_br || rst; 
+
+// load signals for pipeline registers
+logic load_if, load_id, load_ex;
+logic load_mem, load_wb;
+
+// stall signal
+logic data_stall; 
 
 // IF stage:
 logic load_pc = 1'b1;	// set pc to be always loading
 rv32i_word pcmux1_out, pcmux2_out, if_pc_out;
 
 // IF/ID:
-logic load_ir = 1'b1;	// set ir to be always loading
+// logic load_ir = 1'b1;	// set ir to be always loading
 rv32i_word id_i_imm, id_s_imm, id_b_imm, id_u_imm, id_j_imm;	// Immediate values - go to immmux
 logic [4:0] id_rs1, id_rs2, id_rd;	// rs1, rs2 are used by regfile; rd needs to be preserved to later stages.
 rv32i_word id_pc_out;
@@ -106,8 +126,8 @@ pc_register PC(
 
 // IF/ID Modules
 ir IR(
-    .clk  (clk), .rst (rst),
-    .load (load_ir),
+    .clk  (clk), .rst (ms_flush || if_flush),
+    .load (load_if),
 	.in (if_i_mem_data),
 	.funct3 (if_funct3), .funct7 (if_funct7),
 	.opcode(if_opcode),
@@ -116,50 +136,50 @@ ir IR(
 );
 
 register if_id_pc_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush), .load (load_if),
     .in   (if_pc_out), .out  (id_pc_out)
 );
 
 // ID Modules
 regfile regfile(
-    .clk  (clk),	.rst (rst),
-    .load (wb_ctrl.load_regfile),
-    .in   (wb_regfilemux_out),
+  .clk  (clk),	.rst (rst),
+  .load (wb_ctrl.load_regfile & load_wb),
+  .in   (wb_regfilemux_out),
 	.src_a (id_rs1),
 	.src_b (id_rs2),
 	.dest (wb_rd),
-    .reg_a (ex_rs1_out),
+  .reg_a (ex_rs1_out),
 	.reg_b (ex_rs2_out)
 );
 
 // ID/EX:
 register id_ex_pc_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
 register id_ex_rs1_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_rs1), .out  (ex_rs1)
 );
 
 register id_ex_rs2_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_rs2), .out  (ex_rs2)
 );
 
 register #(.width(5)) id_ex_rd_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_rd), .out  (ex_rd)
 );
 
 register id_ex_imm_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_imm), .out  (ex_imm)
 );
 
 ctrl_reg id_ex_ctrl_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_ctrl), .out  (ex_ctrl)
 );
 
@@ -180,37 +200,37 @@ cmp CMP(
 
 // EX/MEM
 register ex_mem_pc_reg(		// PC Adder + Reg
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_pc_out + 4), .out  (mem_pc_out)
 );
 
 register #(.width(5)) ex_mem_rd_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_rd), .out(mem_rd)
 );
 
 register ex_mem_alu_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_alu_out), .out  (mem_alu_out)
 );
 
 register ex_mem_rs2_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_rs2_out), .out  (mem_rs2_out)
 );
 
 register #(.width(1)) ex_mem_br_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_br_en), .out  (mem_br_en)
 );
 
 register ex_mem_imm_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_imm), .out  (mem_imm)
 );
 
 ctrl_reg ex_mem_ctrl_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_ctrl), .out  (mem_ctrl)
 );
 
@@ -315,56 +335,67 @@ end
 
 // MEM/WB
 register mem_wb_pc_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_pc_out), .out  (wb_pc_out)	// Goes to regfilemux
 );
 
 register #(.width(5)) mem_wb_rd_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_rd), .out  (wb_rd)	// Goes to regfile in ID stage
 );
 
 register mem_wb_br_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   ({31'b0, mem_br_en}), .out  (wb_br_en)	// Zero-extend Module here
 );
 
 register mem_wb_alu_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_alu_out), .out  (wb_alu_out)
 );
 
 register mem_wb_d_mem_data(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (d_mem_data), .out  (wb_d_mem_data)		// Goes to regfilemux
 );
 
 register mem_wb_imm_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_imm), .out  (wb_imm)		// Goes to regfilemux
 );
 
 ctrl_reg mem_wb_ctrl_reg(
-    .clk  (clk), .rst (rst), .load (1'b1),
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_ctrl), .out  (wb_ctrl)
 );
 
 register mem_wb_d_mem_addr_reg(
-	.clk  (clk), .rst (rst), .load (1'b1),
+	.clk  (clk), .rst (rst || mem_flush), .load (load_mem),
 	.in   (mem_alu_out), .out (wb_d_mem_address)
 );
 
-
-logic is_br;
 assign is_br = ex_ctrl.br_op & ex_br_en;
 
 /**************** MUXES ****************/
 always_comb begin
-	 // MUX before PCMUX in the datapath diagram
-    unique case (is_br)
-        1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
-		1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
-        default: pcmux1_out = if_pc_out + 4;
+  load_if = 1'b1;
+  load_id = 1'b1; 
+  load_ex = 1'b1;
+  load_mem = 1'b1; 
+  load_wb = 1'b1;
+  data_stall = 1'b0;
+
+  if_flush = 1'b0;
+  id_flush = 1'b0;
+  ex_flush = 1'b0;
+  mem_flush = 1'b0;
+  wb_flush = 1'b0;
+
+	// MUX before PCMUX in the datapath diagram
+  unique case (is_br)
+    1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
+    1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
+    default: pcmux1_out = if_pc_out + 4;
 	endcase
 	 
 	 // PCMUX
@@ -399,17 +430,18 @@ always_comb begin
 	
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-	    if (ex_rs1 == mem_rd) begin		// 1 stage away
-		     if (mem_ctrl.opcode == op_load)
-			      ex_alumux3_out = ex_alumux1_out;	// TODO: Need stalling to prevent this from happening!
-			  else
-		         ex_alumux3_out = mem_alu_out;
+      if (ex_rs1 == mem_rd) begin		// 1 stage away
+        if (mem_ctrl.opcode == op_load)        
+          ex_alumux3_out = ex_alumux1_out;	// TODO: Need stalling to prevent this from happening!
+          data_stall = 1'b1;
+        else
+          ex_alumux3_out = mem_alu_out;
 		 end
 		 else if (ex_rs1 == wb_rd) begin	// 2 stages away
-		     if (wb_ctrl.opcode == op_load)
-			      ex_alumux3_out = wb_d_mem_data;
-			  else
-		         ex_alumux3_out = wb_alu_out;
+        if (wb_ctrl.opcode == op_load)
+          ex_alumux3_out = wb_d_mem_data;
+        else
+          ex_alumux3_out = wb_alu_out;
 		 end
 		 else begin 	// no data hazards; set default values.
 		     ex_alumux3_out = ex_alumux1_out;
@@ -420,10 +452,11 @@ always_comb begin
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
-	    if (ex_rs2 == mem_rd) begin
+	    if (ex_rs2 == mem_rd) begin         
 		     if (mem_ctrl.opcode == op_load)
 			      ex_alumux4_out = ex_alumux2_out;	// TODO: Need stalling to prevent this from happening!
-			  else
+            data_stall = 1'b1;
+        else
 		         ex_alumux4_out = mem_alu_out;
 		 end
 		 else if (ex_rs2 == wb_rd) begin
@@ -450,7 +483,8 @@ always_comb begin
 	 if (ex_rs1 == mem_rd) begin		// 1 stage away
 		  if (mem_ctrl.opcode == op_load)
 				ex_cmpmux1_out = ex_rs1_out;	// TODO: Need stalling to prevent this from happening!
-		  else
+        data_stall = 1'b1;
+      else
 				ex_cmpmux1_out = mem_alu_out;
 	 end
 	 else if (ex_rs1 == wb_rd) begin	// 2 stages away
@@ -468,7 +502,8 @@ always_comb begin
 	    if (ex_rs2 == mem_rd) begin
 		     if (mem_ctrl.opcode == op_load)
 			      ex_cmpmux2_out = ex_cmpmux_out;	// TODO: Need stalling to prevent this from happening!
-			  else
+            data_stall = 1'b1;
+        else
 		         ex_cmpmux2_out = mem_alu_out;
 		 end
 		 else if (ex_rs2 == wb_rd) begin
@@ -532,6 +567,24 @@ always_comb begin
         end
         default: `BAD_MUX_SEL;
     endcase
+
+    // if we have data hazard, handle stalling
+    if (data_stall) begin
+      load_pc = 1'b0;
+      load_if = 1'b0;
+      load_id = 1'b0;
+      load_ex = 1'b0;
+      mem_flush = 1'b1;
+    end
+
+    if(!i_mem_resp || !d_mem_resp) begin
+      load_pc = 1'b0;
+      load_if = 1'b0;
+      load_id = 1'b0; 
+      load_ex = 1'b0;
+      load_mem = 1'b0; 
+      load_wb = 1'b0;
+    end
 end
 
 endmodule : datapath
