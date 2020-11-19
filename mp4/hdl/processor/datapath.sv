@@ -42,6 +42,8 @@ logic ex_flush;
 logic mem_flush;
 logic wb_flush;
 
+logic read_regfile;
+
 // misspeculation flush signal
 assign ms_flush = is_br || rst; 
 
@@ -148,6 +150,7 @@ register if_id_pc_reg(
 regfile regfile(
   .clk  (clk),	.rst (rst),
   .load (wb_ctrl.load_regfile & load_wb),
+  .read (read_regfile),
   .in   (wb_regfilemux_out),
 	.src_a (id_rs1),
 	.src_b (id_rs2),
@@ -393,6 +396,7 @@ always_comb begin
   load_mem = 1'b1; 
   load_wb = 1'b1;
   load_pc = 1'b1;
+  read_regfile = 1'b1;
   data_stall = 1'b0;
 
   if_flush = 1'b0;
@@ -440,15 +444,15 @@ always_comb begin
 	
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-      if (ex_rs1 == mem_rd) begin		// 1 stage away
-        if (mem_ctrl.opcode == op_load && data_stall_ctr == 1'b0) begin
-				 ex_alumux3_out = ex_alumux1_out;
-				 data_stall = 1'b1;
+      if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
+        if (mem_ctrl.opcode == op_load) begin
+				ex_alumux3_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 		  end
         else
-          ex_alumux3_out = mem_alu_out;
+          ex_alumux3_out = mem_regfilemux_out;
 		 end
-		 else if (ex_rs1 == wb_rd) begin	// 2 stages away
+		 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
         // if (wb_ctrl.opcode == op_load)
         //   ex_alumux3_out = wb_d_mem_data;
         // else
@@ -463,15 +467,15 @@ always_comb begin
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
-	    if (ex_rs2 == mem_rd) begin         
-		    if (mem_ctrl.opcode == op_load && data_stall_ctr == 1'b0) begin
-				ex_alumux4_out = ex_alumux2_out;
-				data_stall = 1'b1;
+	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin         
+		    if (mem_ctrl.opcode == op_load) begin
+				ex_alumux4_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 			end
             else
-		        ex_alumux4_out = mem_alu_out;
+		        ex_alumux4_out = mem_regfilemux_out;
 		 end
-		 else if (ex_rs2 == wb_rd) begin
+		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
 		    // if (wb_ctrl.opcode == op_load)
 			//     ex_alumux4_out = wb_d_mem_data;
 			// else
@@ -493,14 +497,14 @@ always_comb begin
 	
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
 	 if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
-		  if (mem_ctrl.opcode == op_load && data_stall_ctr == 1'b0) begin
-		    data_stall = 1'b1;
-			ex_cmpmux1_out = ex_rs1_out;
+		  if (mem_ctrl.opcode == op_load) begin
+		  	    ex_cmpmux1_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 		  end
       else
-				ex_cmpmux1_out = mem_alu_out;
+				ex_cmpmux1_out = mem_regfilemux_out;
 	 end
-	 else if (ex_rs1 == wb_rd) begin	// 2 stages away
+	 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
 		//   if (wb_ctrl.opcode == op_load)
 		// 		ex_cmpmux1_out = wb_d_mem_data;
 		//   else
@@ -513,14 +517,14 @@ always_comb begin
 	// CMPMUX2 - Inserted between original CMPMUX and CMP.
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin
-		     if (mem_ctrl.opcode == op_load && data_stall_ctr == 1'b0) begin
-					data_stall = 1'b1;
-					ex_cmpmux2_out = ex_cmpmux_out;
+		     if (mem_ctrl.opcode == op_load) begin
+		     	ex_cmpmux2_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 			  end
         else
-		         ex_cmpmux2_out = mem_alu_out;
+		         ex_cmpmux2_out = mem_regfilemux_out;
 		 end
-		 else if (ex_rs2 == wb_rd) begin
+		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
         //  if (wb_ctrl.opcode == op_load)
         //       ex_cmpmux2_out = wb_d_mem_data;
         //   else
@@ -589,6 +593,7 @@ always_comb begin
       load_id = 1'b0;
       load_ex = 1'b0;
       load_mem = 1'b0;
+      read_regfile = 1'b0;
     end
 
     if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
