@@ -158,12 +158,12 @@ register id_ex_pc_reg(
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
-register id_ex_rs1_reg(
+register #(.width(5)) id_ex_rs1_reg(
     .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_rs1), .out  (ex_rs1)
 );
 
-register id_ex_rs2_reg(
+register #(.width(5)) id_ex_rs2_reg(
     .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
     .in   (id_rs2), .out  (ex_rs2)
 );
