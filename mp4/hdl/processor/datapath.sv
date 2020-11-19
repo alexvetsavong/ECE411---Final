@@ -383,6 +383,7 @@ always_comb begin
   load_ex = 1'b1;
   load_mem = 1'b1; 
   load_wb = 1'b1;
+  load_pc = 1'b1;
   data_stall = 1'b0;
 
   if_flush = 1'b0;
@@ -431,9 +432,10 @@ always_comb begin
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
       if (ex_rs1 == mem_rd) begin		// 1 stage away
-        if (mem_ctrl.opcode == op_load)        
-          ex_alumux3_out = ex_alumux1_out;	// TODO: Need stalling to prevent this from happening!
-          data_stall = 1'b1;
+        if (mem_ctrl.opcode == op_load) begin
+				 ex_alumux3_out = ex_alumux1_out;
+				 data_stall = 1'b1;
+		  end
         else
           ex_alumux3_out = mem_alu_out;
 		 end
@@ -453,9 +455,10 @@ always_comb begin
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
 	    if (ex_rs2 == mem_rd) begin         
-		     if (mem_ctrl.opcode == op_load)
-			      ex_alumux4_out = ex_alumux2_out;	// TODO: Need stalling to prevent this from happening!
-            data_stall = 1'b1;
+		     if (mem_ctrl.opcode == op_load) begin
+					ex_alumux4_out = ex_alumux2_out;
+					data_stall = 1'b1;
+			  end
         else
 		         ex_alumux4_out = mem_alu_out;
 		 end
@@ -481,9 +484,10 @@ always_comb begin
 	
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
 	 if (ex_rs1 == mem_rd) begin		// 1 stage away
-		  if (mem_ctrl.opcode == op_load)
-				ex_cmpmux1_out = ex_rs1_out;	// TODO: Need stalling to prevent this from happening!
-        data_stall = 1'b1;
+		  if (mem_ctrl.opcode == op_load) begin
+		      data_stall = 1'b1;
+				ex_cmpmux1_out = ex_rs1_out;
+		  end
       else
 				ex_cmpmux1_out = mem_alu_out;
 	 end
@@ -497,12 +501,13 @@ always_comb begin
 		  ex_cmpmux1_out = ex_rs1_out;
 	 end
 
-	// CMPMUX4 - Inserted between original CMPMUX and CMP.
+	// CMPMUX2 - Inserted between original CMPMUX and CMP.
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
 	    if (ex_rs2 == mem_rd) begin
-		     if (mem_ctrl.opcode == op_load)
-			      ex_cmpmux2_out = ex_cmpmux_out;	// TODO: Need stalling to prevent this from happening!
-            data_stall = 1'b1;
+		     if (mem_ctrl.opcode == op_load) begin
+					data_stall = 1'b1;
+					ex_cmpmux2_out = ex_cmpmux_out;
+			  end
         else
 		         ex_cmpmux2_out = mem_alu_out;
 		 end
