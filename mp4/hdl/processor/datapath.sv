@@ -33,7 +33,7 @@ module datapath
 	 output logic [3:0] d_mem_byte_enable
 );
 /**************** Signals ****************/
-logic is_br = 1'b0;
+logic is_br;
 logic ms_flush;
 
 logic if_flush;

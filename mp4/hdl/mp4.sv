@@ -45,13 +45,15 @@ datapath i_datapath(
 	.i_mem_address(i_mem_address),
 	.if_i_mem_data(i_mem_rdata),
 	.i_mem_read(i_mem_read),
+	.i_mem_resp(i_mem_resp),
 
 	.d_mem_address(d_mem_address),
 	.d_mem_data(d_mem_rdata),
 	.d_mem_wdata(d_mem_wdata), 
 	.d_mem_read(d_mem_read),
 	.d_mem_write(d_mem_write), 
-	.d_mem_byte_enable(d_mem_byte_enable)
+	.d_mem_byte_enable(d_mem_byte_enable),
+	.d_mem_resp(d_mem_resp)
 );
 
 control_rom i_control_rom(
