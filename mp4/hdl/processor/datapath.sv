@@ -579,7 +579,7 @@ always_comb begin
       load_if = 1'b0;
       load_id = 1'b0;
       load_ex = 1'b0;
-      mem_flush = 1'b1;
+      ex_flush = 1'b1;
     end
 
     if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
