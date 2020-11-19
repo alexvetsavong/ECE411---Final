@@ -582,7 +582,7 @@ always_comb begin
       mem_flush = 1'b1;
     end
 
-    if(!i_mem_resp || !d_mem_resp) begin
+    if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
       load_pc = 1'b0;
       load_if = 1'b0;
       load_id = 1'b0; 
