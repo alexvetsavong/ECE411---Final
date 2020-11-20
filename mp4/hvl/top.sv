@@ -53,13 +53,13 @@ assign rvfi.pc_rdata = dut.i_datapath.PC.out;
 assign rvfi.pc_wdata = dut.i_datapath.PC.in;
 
 // Memory:
-/*
-assign rvfi.mem_addr = dut.i_mem_address;
-assign rvfi.mem_rmask = dut.i_datapath.rmask;
-assign rvfi.mem_wmask = dut.i_datapath.wmask;
-assign rvfi.mem_rdata = dut.d_mem_data;
-assign rvfi.mem_wdata = dut.d_mem_wdata;
-*/
+
+// assign rvfi.mem_addr = dut.i_mem_address;
+// assign rvfi.mem_rmask = dut.i_datapath.rmask;
+// assign rvfi.mem_wmask = dut.i_datapath.wmask;
+// assign rvfi.mem_rdata = dut.d_mem_data;
+// assign rvfi.mem_wdata = dut.d_mem_wdata;
+
 /**************************** End RVFIMON signals ****************************/
 
 /********************* Assign Shadow Memory Signals Here *********************/
@@ -73,7 +73,7 @@ icache signals:
     itf.inst_resp
     itf.inst_rdata
 
-//dcache signals:
+dcache signals:
     itf.data_read
     itf.data_write
     itf.data_mbe
@@ -84,6 +84,19 @@ icache signals:
 
 Please refer to tb_itf.sv for more information.
 */
+
+assign itf.inst_read = dut.i_cache_top.i_mem_read;
+assign itf.inst_addr = dut.i_cache_top.i_mem_address;
+assign itf.inst_resp = dut.i_cache_top.i_mem_resp;
+assign itf.inst_rdata = dut.i_cache_top.i_mem_rdata;
+
+assign itf.data_read = dut.i_cache_top.d_mem_read;
+assign itf.data_write = dut.i_cache_top.d_mem_write;
+assign itf.data_mbe = dut.i_cache_top.d_mem_byte_enable;
+assign itf.data_addr = dut.i_cache_top.d_mem_address;
+assign itf.data_wdata = dut.i_cache_top.d_mem_wdata;
+assign itf.data_resp = dut.i_cache_top.d_mem_resp;
+assign itf.data_rdata = dut.i_cache_top.d_mem_rdata;
 
 /*********************** End Shadow Memory Assignments ***********************/
 
