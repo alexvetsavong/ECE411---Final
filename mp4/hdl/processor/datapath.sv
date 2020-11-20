@@ -35,6 +35,7 @@ module datapath
 /**************** Signals ****************/
 logic is_br;
 logic ms_flush;
+logic halt;
 
 logic if_flush;
 logic id_flush;
@@ -44,9 +45,6 @@ logic wb_flush;
 
 logic read_regfile;
 logic mem_gate;
-
-// misspeculation flush signal
-assign ms_flush = is_br || rst; 
 
 // load signals for pipeline registers
 logic load_if, load_id, load_ex;
@@ -120,6 +118,10 @@ branch_funct3_t branch_funct3;
 assign branch_funct3 = branch_funct3_t'(mem_ctrl.funct3);
 assign load_funct3 = load_funct3_t'(mem_ctrl.funct3);
 assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
+
+// misspeculation flush signal
+assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
+assign ms_flush = (!(data_stall)) && (is_br || rst); 
 
 
 /**************** Modules ****************/
@@ -450,11 +452,10 @@ always_comb begin
         if (mem_ctrl.opcode == op_load) begin
 				ex_alumux3_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-		  end
-        else
+		end else
           ex_alumux3_out = mem_regfilemux_out;
-		 end
-		 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
+		end
+		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
         // if (wb_ctrl.opcode == op_load)
         //   ex_alumux3_out = wb_d_mem_data;
         // else
@@ -538,7 +539,11 @@ always_comb begin
 	end
 	else
 	    ex_cmpmux2_out = ex_cmpmux_out;
-		
+    
+    if (mem_ctrl.opcode == op_load) begin
+        data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+    end
+
 	// REGFILEMUX
 	unique case (mem_ctrl.regfilemux_sel)
         regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
@@ -588,7 +593,7 @@ always_comb begin
         default: `BAD_MUX_SEL;
     endcase
 
-    // if we have data hazard, handle stalling
+    // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
     if (data_stall) begin
       load_pc = 1'b0;
       load_if = 1'b0;
