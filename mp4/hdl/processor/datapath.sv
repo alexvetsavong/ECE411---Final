@@ -43,6 +43,7 @@ logic mem_flush;
 logic wb_flush;
 
 logic read_regfile;
+logic mem_gate;
 
 // misspeculation flush signal
 assign ms_flush = is_br || rst; 
@@ -107,8 +108,8 @@ assign i_mem_address = if_pc_out;
 assign i_mem_read = 1'b1;
 assign d_mem_wdata = mem_rs2_out;
 assign d_mem_address = {mem_alu_out[31:2], 2'b0};
-assign d_mem_read = mem_ctrl.mem_read;
-assign d_mem_write = mem_ctrl.mem_write;
+assign d_mem_read = mem_ctrl.mem_read && mem_gate;
+assign d_mem_write = mem_ctrl.mem_write && mem_gate;
 assign d_mem_byte_enable = wmask;
 
 // Casting functions
@@ -398,6 +399,7 @@ always_comb begin
   load_pc = 1'b1;
   read_regfile = 1'b1;
   data_stall = 1'b0;
+  mem_gate = 1'b1;
 
   if_flush = 1'b0;
   id_flush = 1'b0;
@@ -594,6 +596,7 @@ always_comb begin
       load_ex = 1'b0;
       load_mem = 1'b0;
       read_regfile = 1'b0;
+      mem_gate = 1'b1;
     end
 
     if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
@@ -603,6 +606,7 @@ always_comb begin
       load_ex = 1'b0;
       load_mem = 1'b0; 
       load_wb = 1'b0;
+      read_regfile = 1'b0;
     end
 end
 
