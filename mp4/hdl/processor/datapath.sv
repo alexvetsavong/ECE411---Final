@@ -448,12 +448,15 @@ always_comb begin
 	
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-      if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
         if (mem_ctrl.opcode == op_load) begin
-				ex_alumux3_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+        end
+        if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
+            if (mem_ctrl.opcode == op_load) begin
+				ex_alumux3_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-		end else
-          ex_alumux3_out = mem_regfilemux_out;
+		    end else
+                ex_alumux3_out = mem_regfilemux_out;
 		end
 		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
         // if (wb_ctrl.opcode == op_load)
@@ -470,9 +473,12 @@ always_comb begin
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
+        if (mem_ctrl.opcode == op_load) begin
+            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+        end
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin         
 		    if (mem_ctrl.opcode == op_load) begin
-				ex_alumux4_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+				ex_alumux4_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 			end
             else
@@ -501,7 +507,7 @@ always_comb begin
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
 	 if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
 		  if (mem_ctrl.opcode == op_load) begin
-		  	    ex_cmpmux1_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+		  	    ex_cmpmux1_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 		  end
       else
@@ -514,19 +520,22 @@ always_comb begin
 		ex_cmpmux1_out = wb_regfilemux_out;
 	 end
 	 else begin 	// no data hazards; set default values.
-		  ex_cmpmux1_out = ex_rs1_out;
+		ex_cmpmux1_out = ex_rs1_out;
 	 end
 
 	// CMPMUX2 - Inserted between original CMPMUX and CMP.
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
+        if (mem_ctrl.opcode == op_load) begin
+            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+        end
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin
-		     if (mem_ctrl.opcode == op_load) begin
-		     	ex_cmpmux2_out = data_stall_ctr ? mem_regfilemux_out : mem_regfilemux_out;
+		    if (mem_ctrl.opcode == op_load) begin
+		     	ex_cmpmux2_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-			  end
-        else
-		         ex_cmpmux2_out = mem_regfilemux_out;
-		 end
+			end
+            else
+		        ex_cmpmux2_out = mem_regfilemux_out;
+		end
 		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
         //  if (wb_ctrl.opcode == op_load)
         //       ex_cmpmux2_out = wb_d_mem_data;
@@ -539,10 +548,6 @@ always_comb begin
 	end
 	else
 	    ex_cmpmux2_out = ex_cmpmux_out;
-    
-    if (mem_ctrl.opcode == op_load) begin
-        data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-    end
 
 	// REGFILEMUX
 	unique case (mem_ctrl.regfilemux_sel)
@@ -600,8 +605,9 @@ always_comb begin
       load_id = 1'b0;
       load_ex = 1'b0;
       load_mem = 1'b0;
+      load_wb = 1'b0;
       read_regfile = 1'b0;
-      mem_gate = 1'b1;
+    //   mem_gate = 1'b1;
     end
 
     if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
@@ -617,7 +623,7 @@ end
 
 always_ff @(posedge clk) begin
 	if(data_stall && (d_mem_resp && (d_mem_read || d_mem_write)))
-		data_stall_ctr <= data_stall_ctr + 1'b1;
+		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
 end

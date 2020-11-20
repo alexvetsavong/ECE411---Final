@@ -40,11 +40,13 @@ begin
     end
     else begin
         for (int i = 0; i < s_mask; i++)
-            dataout[8*i +: 8] = (write_en[i] & (rindex == windex)) ? datain[8*i +: 8] : data[rindex][8*i +: 8];
-
-        for (int i = 0; i < s_mask; i++)
             data[windex][8*i +: 8] <= write_en[i] ? datain[8*i +: 8] : data[windex][8*i +: 8];
     end
+end
+
+always_comb begin
+for (int i = 0; i < s_mask; i++)
+    dataout[8*i +: 8] = (write_en[i] & (rindex == windex)) ? datain[8*i +: 8] : data[rindex][8*i +: 8];
 end
 
 endmodule : data_array

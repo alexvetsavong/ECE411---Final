@@ -7,7 +7,7 @@ module register #(parameter width = 32)
     output logic [width-1:0] out
 );
 
-logic [width-1:0] data = 1'b0;
+logic [width-1:0] data = '0;
 
 always_ff @(posedge clk)
 begin
