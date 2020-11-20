@@ -27,7 +27,7 @@ bit f;
 logic [2:0] counter = 3'b000;
 logic should_halt;
 
-assign rvfi.commit = 0; // Set high when a valid instruction is modifying regfile or PC
+assign rvfi.commit = ((dut.i_datapath.wb_ctrl.load_regfile) & (dut.i_datapath.load_wb)) && (dut.i_datapath.wb_rd != 5'b0); // Set high when a valid instruction is modifying regfile or PC
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 always @(posedge itf.clk iff should_halt) counter <= counter + 1;
@@ -53,13 +53,12 @@ assign rvfi.pc_rdata = dut.i_datapath.PC.out;
 assign rvfi.pc_wdata = dut.i_datapath.PC.in;
 
 // Memory:
-/*
 assign rvfi.mem_addr = dut.i_mem_address;
 assign rvfi.mem_rmask = dut.i_datapath.rmask;
 assign rvfi.mem_wmask = dut.i_datapath.wmask;
-assign rvfi.mem_rdata = dut.d_mem_data;
+assign rvfi.mem_rdata = dut.d_mem_rdata;
 assign rvfi.mem_wdata = dut.d_mem_wdata;
-*/
+
 /**************************** End RVFIMON signals ****************************/
 
 /********************* Assign Shadow Memory Signals Here *********************/
@@ -85,6 +84,19 @@ icache signals:
 Please refer to tb_itf.sv for more information.
 */
 
+// Shadow memory: 
+assign itf.inst_read = dut.i_mem_read;
+assign itf.inst_addr = dut.i_mem_address;
+assign itf.inst_resp = dut.i_mem_resp;
+assign itf.inst_rdata = dut.i_mem_rdata;
+
+assign itf.data_read = dut.d_mem_read;
+assign itf.data_write = dut.d_mem_write;
+assign itf.data_mbe = dut.d_mem_byte_enable;
+assign itf.data_addr = dut.d_mem_address;
+assign itf.data_wdata = dut.d_mem_wdata;
+assign itf.data_resp = dut.d_mem_resp;
+assign itf.data_rdata = dut.d_mem_rdata;
 /*********************** End Shadow Memory Assignments ***********************/
 
 // Set this to the proper value

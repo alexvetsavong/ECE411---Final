@@ -152,7 +152,7 @@ register if_id_pc_reg(
 // ID Modules
 regfile regfile(
   .clk  (clk),	.rst (rst),
-  .load (wb_ctrl.load_regfile & load_wb),
+  .load (wb_ctrl.load_regfile & load_wb & !(wb_rd)),
   .read (read_regfile),
   .in   (wb_regfilemux_out),
 	.src_a (id_rs1),
