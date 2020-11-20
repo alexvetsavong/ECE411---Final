@@ -34,7 +34,8 @@ module datapath
 );
 /**************** Signals ****************/
 logic is_br;
-logic ms_flush;
+logic ms_flush, ms_flush1, ms_flush2, ms_flush3;
+logic force_pcplus4;
 logic halt;
 
 logic if_flush;
@@ -121,7 +122,7 @@ assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 
 // misspeculation flush signal
 assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
-assign ms_flush = (!(data_stall)) && (is_br || rst); 
+assign ms_flush = (!(data_stall)) && is_br && !ms_flush1 && !ms_flush2 && !ms_flush3; 
 
 
 /**************** Modules ****************/
@@ -135,7 +136,7 @@ pc_register PC(
 
 // IF/ID Modules
 ir IR(
-    .clk  (clk), .rst (ms_flush || if_flush),
+    .clk  (clk), .rst (rst || if_flush),
     .load (load_if),
 	.in (if_i_mem_data),
 	.funct3 (if_funct3), .funct7 (if_funct7),
@@ -145,7 +146,7 @@ ir IR(
 );
 
 register if_id_pc_reg(
-    .clk  (clk), .rst (ms_flush), .load (load_if),
+    .clk  (clk), .rst (rst), .load (load_if),
     .in   (if_pc_out), .out  (id_pc_out)
 );
 
@@ -164,32 +165,32 @@ regfile regfile(
 
 // ID/EX:
 register id_ex_pc_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
 register #(.width(5)) id_ex_rs1_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_rs1), .out  (ex_rs1)
 );
 
 register #(.width(5)) id_ex_rs2_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_rs2), .out  (ex_rs2)
 );
 
 register #(.width(5)) id_ex_rd_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_rd), .out  (ex_rd)
 );
 
 register id_ex_imm_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_imm), .out  (ex_imm)
 );
 
 ctrl_reg id_ex_ctrl_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_ctrl), .out  (ex_ctrl)
 );
 
@@ -408,11 +409,12 @@ always_comb begin
   ex_flush = 1'b0;
   mem_flush = 1'b0;
   wb_flush = 1'b0;
+  force_pcplus4 = 1'b0;
 
 	// MUX before PCMUX in the datapath diagram
     unique case (is_br)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
-        1'b1: pcmux1_out = ex_alu_out;		// PC <- b_imm + PC if br_en
+        1'b1: pcmux1_out = force_pcplus4 ? (if_pc_out + 4) : ex_alu_out;		// PC <- b_imm + PC if br_en
         default: pcmux1_out = if_pc_out + 4;
 	endcase
 	 
@@ -598,6 +600,37 @@ always_comb begin
         default: `BAD_MUX_SEL;
     endcase
 
+    if(ms_flush) begin
+      load_pc = 1'b0;
+      load_if = 1'b0;
+      load_id = 1'b0;
+      load_ex = 1'b0;
+      load_mem = 1'b0;
+      load_wb = 1'b0;
+      read_regfile = 1'b0;
+    end
+
+    if(ms_flush1) begin
+      force_pcplus4 = 1'b1;
+      load_id = 1'b0;
+      load_ex = 1'b0;
+      load_mem = 1'b0;
+      load_wb = 1'b0;
+      read_regfile = 1'b0;
+    end
+
+    if(ms_flush2) begin
+      force_pcplus4 = 1'b1;
+      load_ex = 1'b0;
+      load_mem = 1'b0;
+      load_wb = 1'b0;
+      read_regfile = 1'b0;
+    end
+
+    if(ms_flush3) begin
+      force_pcplus4 = 1'b1;
+    end
+
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
     if (data_stall) begin
       load_pc = 1'b0;
@@ -619,6 +652,7 @@ always_comb begin
       load_wb = 1'b0;
       read_regfile = 1'b0;
     end
+
 end
 
 always_ff @(posedge clk) begin
@@ -626,6 +660,18 @@ always_ff @(posedge clk) begin
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
+	if(ms_flush)
+		ms_flush1 <= 1'b1;
+	else
+		ms_flush1 <= 1'b0;
+	if(ms_flush1)
+		ms_flush2 <= 1'b1;
+	else
+		ms_flush2 <= 1'b0;
+	if(ms_flush2)
+		ms_flush3 <= 1'b1;
+	else
+		ms_flush3 <= 1'b0;
 end
 
 endmodule : datapath
