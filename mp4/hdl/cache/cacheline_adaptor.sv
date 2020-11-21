@@ -32,6 +32,11 @@ logic [31:0] address_next;
 
 logic [2:0] count;
 
+initial begin
+    read_o = 1'b0;
+    write_o = 1'b0;
+end
+
 always_ff @(posedge clk)
 begin
     if(!reset_n)

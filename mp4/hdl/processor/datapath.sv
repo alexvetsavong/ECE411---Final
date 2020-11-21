@@ -34,7 +34,7 @@ module datapath
 );
 /**************** Signals ****************/
 logic is_br;
-logic ms_flush, ms_flush1, ms_flush2, ms_flush3;
+logic ms_flush, ms_flush1, ms_flush2;
 logic force_pcplus4;
 logic halt;
 
@@ -122,7 +122,7 @@ assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 
 // misspeculation flush signal
 assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
-assign ms_flush = (!(data_stall)) && is_br && !ms_flush1 && !ms_flush2 && !ms_flush3; 
+assign ms_flush = (!(data_stall)) && is_br && !ms_flush1 && !ms_flush2; 
 
 
 /**************** Modules ****************/
@@ -601,12 +601,9 @@ always_comb begin
     endcase
 
     if(ms_flush) begin
-      load_pc = 1'b0;
+      load_pc = 1'b1;
       load_if = 1'b0;
       load_id = 1'b0;
-      load_ex = 1'b0;
-      load_mem = 1'b0;
-      load_wb = 1'b0;
       read_regfile = 1'b0;
     end
 
@@ -624,11 +621,6 @@ always_comb begin
       load_ex = 1'b0;
       load_mem = 1'b0;
       load_wb = 1'b0;
-      read_regfile = 1'b0;
-    end
-
-    if(ms_flush3) begin
-      force_pcplus4 = 1'b1;
     end
 
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
@@ -668,10 +660,6 @@ always_ff @(posedge clk) begin
 		ms_flush2 <= 1'b1;
 	else
 		ms_flush2 <= 1'b0;
-	if(ms_flush2)
-		ms_flush3 <= 1'b1;
-	else
-		ms_flush3 <= 1'b0;
 end
 
 endmodule : datapath
