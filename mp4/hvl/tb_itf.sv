@@ -45,6 +45,9 @@ interface tb_itf();
     mailbox #(string) path_mb;
     initial path_mb = new();
 
+    initial mem_read = 1'b0;
+    initial mem_write = 1'b0;
+
     /* Burst Memory */
     clocking mcb @(posedge clk);
         input read = mem_read, write = mem_write, addr = mem_addr,

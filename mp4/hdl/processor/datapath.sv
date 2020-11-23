@@ -126,7 +126,6 @@ assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
 assign ms_flush = (!(data_stall)) && is_br && !ms_flush1 && !ms_flush2; 
 
-
 /**************** Modules ****************/
 // IF Modules
 pc_register PC(
@@ -297,7 +296,7 @@ begin : trap_check
         op_load: begin
             case (load_funct3)
                 lw: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: rmask = 4'b1111;
                         2'b01: begin
                             rmask = 4'b1110;
@@ -314,7 +313,7 @@ begin : trap_check
                     endcase
                 end
                 lh, lhu: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: rmask = 4'b0011;
                         2'b01: rmask = 4'bXXXX;
                         2'b10: rmask = 4'b1100;
@@ -322,7 +321,7 @@ begin : trap_check
                     endcase
                 end
                 lb, lbu: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: rmask = 4'b0001;
                         2'b01: rmask = 4'b0010;
                         2'b10: rmask = 4'b0100;
@@ -336,7 +335,7 @@ begin : trap_check
         op_store: begin
             case (store_funct3)
                 sw: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: wmask = 4'b1111;
                         2'b01: begin
                             wmask = 4'b1110;
@@ -353,7 +352,7 @@ begin : trap_check
                     endcase
                 end
                 sh: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: wmask = 4'b0011;
                         2'b01: wmask = 4'bXXXX;
                         2'b10: wmask = 4'b1100;
@@ -361,7 +360,7 @@ begin : trap_check
                     endcase
                 end
                 sb: begin
-                    case (d_mem_address[1:0])
+                    case (mem_alu_out[1:0])
                         2'b00: wmask = 4'b0001;
                         2'b01: wmask = 4'b0010;
                         2'b10: wmask = 4'b0100;
@@ -522,9 +521,6 @@ always_comb begin
 	
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-        if (mem_ctrl.opcode == op_load) begin
-            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-        end
         if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
             if (mem_ctrl.opcode == op_load) begin
 				ex_alumux3_out = mem_regfilemux_out;
@@ -547,9 +543,6 @@ always_comb begin
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
-        if (mem_ctrl.opcode == op_load) begin
-            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-        end
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin         
 		    if (mem_ctrl.opcode == op_load) begin
 				ex_alumux4_out = mem_regfilemux_out;
@@ -599,9 +592,6 @@ always_comb begin
 
 	// CMPMUX2 - Inserted between original CMPMUX and CMP.
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
-        if (mem_ctrl.opcode == op_load) begin
-            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-        end
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin
 		    if (mem_ctrl.opcode == op_load) begin
 		     	ex_cmpmux2_out = mem_regfilemux_out;
@@ -630,7 +620,7 @@ always_comb begin
 		regfilemux::u_imm: mem_regfilemux_out = mem_imm;	
 		regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out;	        // already +4'ed in EX stage
 		regfilemux::lw: begin
-            unique case (d_mem_address[1:0])
+            unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = d_mem_data;
                 2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
                 2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
@@ -638,7 +628,7 @@ always_comb begin
             endcase
         end
         regfilemux::lb: begin 
-            unique case (d_mem_address[1:0])
+            unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = {{24{d_mem_data[7]}}, d_mem_data[7:0]};
                 2'b01: mem_regfilemux_out = {{24{d_mem_data[15]}}, d_mem_data[15:8]};
                 2'b10: mem_regfilemux_out = {{24{d_mem_data[23]}}, d_mem_data[23:16]};
@@ -646,7 +636,7 @@ always_comb begin
             endcase
         end
         regfilemux::lbu: begin
-            unique case (d_mem_address[1:0])
+            unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = {24'b0, d_mem_data[7:0]};
                 2'b01: mem_regfilemux_out = {24'b0, d_mem_data[15:8]};
                 2'b10: mem_regfilemux_out = {24'b0, d_mem_data[23:16]};
@@ -654,7 +644,7 @@ always_comb begin
             endcase
         end
         regfilemux::lh: begin
-            unique case (d_mem_address[1:0])
+            unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = {{16{d_mem_data[15]}}, d_mem_data[15:0]};
                 2'b01: mem_regfilemux_out = 32'bX; 
                 2'b10: mem_regfilemux_out = {{16{d_mem_data[31]}}, d_mem_data[31:16]};
@@ -662,7 +652,7 @@ always_comb begin
             endcase
         end
         regfilemux::lhu: begin
-            unique case (d_mem_address[1:0])
+            unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = {16'b0, d_mem_data[15:0]};
                 2'b01: mem_regfilemux_out = 32'bX; 
                 2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};

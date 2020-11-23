@@ -72,7 +72,7 @@ icache signals:
     itf.inst_resp
     itf.inst_rdata
 
-//dcache signals:
+dcache signals:
     itf.data_read
     itf.data_write
     itf.data_mbe
