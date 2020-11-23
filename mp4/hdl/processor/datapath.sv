@@ -63,14 +63,14 @@ rv32i_word pcmux1_out, pcmux2_out, if_pc_out;
 // logic load_ir = 1'b1;	// set ir to be always loading
 rv32i_word id_i_imm, id_s_imm, id_b_imm, id_u_imm, id_j_imm;	// Immediate values - go to immmux
 logic [4:0] id_rs1, id_rs2, id_rd;	// rs1, rs2 are used by regfile; rd needs to be preserved to later stages.
-rv32i_word id_pc_out;
+rv32i_word id_pc_out, id_i_mem_data;
 
 // ID stage:
 rv32i_word id_rs1_out, id_rs2_out;
 rv32i_word id_imm;
 
 // ID/EX:
-rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out,  ex_imm;
+rv32i_word ex_pc_out, ex_rs1_out, ex_rs2_out,  ex_imm, ex_i_mem_data;
 logic [4:0] ex_rs1, ex_rs2;
 logic [4:0] ex_rd;
 rv32i_ctrl_word ex_ctrl;
@@ -81,8 +81,8 @@ logic ex_br_en;
 rv32i_word ex_alu_out;
 
 // EX/MEM
-rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out;
-logic [4:0] mem_rd;
+rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out, mem_i_mem_data;
+logic [4:0] mem_rs1, mem_rs2, mem_rd;
 logic mem_br_en;
 rv32i_ctrl_word mem_ctrl;
 
@@ -94,8 +94,10 @@ rv32i_word mem_regfilemux_out;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
-rv32i_word wb_pc_out, wb_imm, wb_alu_out;
-logic [4:0] wb_rd;
+rv32i_word wb_pc_out, wb_rs1_out, wb_rs2_out, wb_imm, wb_alu_out, wb_i_mem_data;
+logic [4:0] wb_rs1, wb_rs2, wb_rd;
+logic [3:0] wb_rmask, wb_wmask;
+logic wb_trap;
 
 // WB
 rv32i_word wb_regfilemux_out, wb_d_mem_data;
@@ -150,6 +152,11 @@ register if_id_pc_reg(
     .in   (if_pc_out), .out  (id_pc_out)
 );
 
+register if_id_i_mem_data_reg(
+    .clk  (clk), .rst (rst), .load (load_if),
+    .in   (if_i_mem_data), .out  (id_i_mem_data)
+);
+
 // ID Modules
 regfile regfile(
   .clk  (clk),	.rst (rst),
@@ -167,6 +174,11 @@ regfile regfile(
 register id_ex_pc_reg(
     .clk  (clk), .rst (rst || id_flush), .load (load_id),
     .in   (id_pc_out), .out  (ex_pc_out)
+);
+
+register id_ex_i_mem_data_reg(
+    .clk  (clk), .rst (rst || id_flush), .load (load_id),
+    .in   (id_i_mem_data), .out  (ex_i_mem_data)
 );
 
 register #(.width(5)) id_ex_rs1_reg(
@@ -215,6 +227,21 @@ register ex_mem_pc_reg(		// PC Adder + Reg
     .in   (ex_pc_out + 4), .out  (mem_pc_out)
 );
 
+register ex_mem_i_mem_data_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_i_mem_data), .out  (mem_i_mem_data)
+);
+
+register #(.width(5)) ex_mem_rs1_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_rs1), .out  (mem_rs1)
+);
+
+register #(.width(5)) ex_mem_rs2_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_rs2), .out  (mem_rs2)
+);
+
 register #(.width(5)) ex_mem_rd_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_rd), .out(mem_rd)
@@ -225,7 +252,12 @@ register ex_mem_alu_reg(
     .in   (ex_alu_out), .out  (mem_alu_out)
 );
 
-register ex_mem_rs2_reg(
+register ex_mem_rs1_out_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_rs1_out), .out  (mem_rs1_out)
+);
+
+register ex_mem_rs2_out_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_rs2_out), .out  (mem_rs2_out)
 );
@@ -350,6 +382,21 @@ register mem_wb_pc_reg(
     .in   (mem_pc_out), .out  (wb_pc_out)	// Goes to regfilemux
 );
 
+register mem_wb_i_mem_data_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_i_mem_data), .out  (wb_i_mem_data)
+);
+
+register #(.width(5)) mem_wb_rs1_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_rs1), .out  (wb_rs1)
+);
+
+register #(.width(5)) mem_wb_rs2_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_rs2), .out  (wb_rs2)
+);
+
 register #(.width(5)) mem_wb_rd_reg(
     .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_rd), .out  (wb_rd)	// Goes to regfile in ID stage
@@ -363,6 +410,16 @@ register mem_wb_br_reg(
 register mem_wb_alu_reg(
     .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_alu_out), .out  (wb_alu_out)
+);
+
+register mem_wb_rs1_out_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_rs1_out), .out  (wb_rs1_out)
+);
+
+register mem_wb_rs2_out_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_rs2_out), .out  (wb_rs2_out)
 );
 
 register mem_wb_d_mem_data(
@@ -388,6 +445,21 @@ register mem_wb_d_mem_addr_reg(
 register mem_wb_regfilemux_out_reg(
 	.clk  (clk), .rst (rst || mem_flush), .load (load_mem),
 	.in   (mem_regfilemux_out), .out (wb_regfilemux_out)
+);
+
+register #(.width(4)) mem_wb_rmask_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (rmask), .out  (wb_rmask)
+);
+
+register #(.width(4)) mem_wb_wmask_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (wmask), .out  (wb_wmask)
+);
+
+register #(.width(1)) mem_wb_trap_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (trap), .out  (wb_trap)
 );
 
 assign is_br = ex_ctrl.br_op & ex_br_en;

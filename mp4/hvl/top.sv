@@ -27,7 +27,7 @@ bit f;
 logic [2:0] counter = 3'b000;
 logic should_halt;
 
-assign rvfi.commit = ((dut.i_datapath.wb_ctrl.load_regfile) & (dut.i_datapath.load_wb)) && (dut.i_datapath.wb_rd != 5'b0); // Set high when a valid instruction is modifying regfile or PC
+assign rvfi.commit = (((dut.i_datapath.wb_ctrl.load_regfile) & (dut.i_datapath.load_wb)) && (dut.i_datapath.wb_rd != 5'b0)); //|| (dut.i_datapath.is_br && !dut.i_datapath.force_pcplus4); // Set high when a valid instruction is modifying regfile or PC
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 always @(posedge itf.clk iff should_halt) counter <= counter + 1;
@@ -37,27 +37,27 @@ assign should_halt = dut.i_datapath.halt;
 assign rvfi.halt = counter >= 2 ? should_halt : 1'b0;   // Set high when you detect an infinite loop
 
 // Instruction and Trap:
-assign rvfi.inst = dut.i_datapath.IR.data;
-assign rvfi.trap = dut.i_datapath.trap;
+assign rvfi.inst = dut.i_datapath.wb_i_mem_data;
+assign rvfi.trap = dut.i_datapath.wb_trap;
 // Regfile:
-assign rvfi.rs1_addr = dut.i_datapath.regfile.src_a;
-assign rvfi.rs2_addr = dut.i_datapath.regfile.src_b;
-assign rvfi.rs1_rdata = dut.i_datapath.regfile.reg_a;
-assign rvfi.rs2_rdata = dut.i_datapath.regfile.reg_b;
-assign rvfi.load_regfile = dut.i_datapath.regfile.load;
-assign rvfi.rd_addr = dut.i_datapath.regfile.dest;
-assign rvfi.rd_wdata = dut.i_datapath.regfile.in;
+assign rvfi.rs1_addr = dut.i_datapath.wb_rs1;
+assign rvfi.rs2_addr = dut.i_datapath.wb_rs2;
+assign rvfi.rs1_rdata = dut.i_datapath.wb_rs1_out;
+assign rvfi.rs2_rdata = dut.i_datapath.wb_rs2_out;
+assign rvfi.load_regfile = dut.i_datapath.wb_ctrl.load_regfile;
+assign rvfi.rd_addr = dut.i_datapath.wb_rd;
+assign rvfi.rd_wdata = dut.i_datapath.wb_regfilemux_out;
 
 // PC:
-assign rvfi.pc_rdata = dut.i_datapath.PC.out;
-assign rvfi.pc_wdata = dut.i_datapath.PC.in;
+assign rvfi.pc_rdata = dut.i_datapath.wb_pc_out;
+assign rvfi.pc_wdata = dut.i_datapath.mem_pc_out;
 
 // Memory:
-assign rvfi.mem_addr = dut.i_mem_address;
-assign rvfi.mem_rmask = dut.i_datapath.rmask;
-assign rvfi.mem_wmask = dut.i_datapath.wmask;
-assign rvfi.mem_rdata = dut.d_mem_rdata;
-assign rvfi.mem_wdata = dut.d_mem_wdata;
+assign rvfi.mem_addr = dut.i_datapath.wb_d_mem_address;
+assign rvfi.mem_rmask = dut.i_datapath.wb_rmask;
+assign rvfi.mem_wmask = dut.i_datapath.wb_wmask;
+assign rvfi.mem_rdata = dut.i_datapath.wb_regfilemux_out;
+assign rvfi.mem_wdata = dut.i_datapath.wb_rs2_out;
 
 /**************************** End RVFIMON signals ****************************/
 
