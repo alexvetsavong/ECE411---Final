@@ -30,7 +30,7 @@ input [s_index-1:0] windex;
 input [s_line-1:0] datain;
 output logic [s_line-1:0] dataout;
 
-logic [s_line-1:0] data [num_sets-1:0] = '{default: '0}; /* synthesis ramstyle = "logic" */;
+logic [s_line-1:0] data [num_sets-1:0] = '{default: '0}; /* synthesis ramstyle = "logic" */
 
 always_comb begin
 for (int i = 0; i < s_mask; i++)
