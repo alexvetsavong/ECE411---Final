@@ -30,8 +30,6 @@ module cache_datapath #(
 	input logic load_lru,
 	input logic set_lru,
 	input logic way_sel,
-	input logic write_en1,
-	input logic write_en2,
 	input logic [1:0] write_sel,
 	input logic [1:0] load_valid,
 	input logic set_valid,
@@ -46,32 +44,35 @@ logic [23:0] tag;
 assign tag = mem_address[31:8];
 
 logic [31:0] write_mask, write_mask1, write_mask2;
+logic write_en, write_en1, write_en2;
 logic [255:0] datain, dataout1, dataout2;
 logic comp1, comp2;
 
 /********************************* Arrays ************************************/
 
-data_array data_array1 (
-    .clk (clk),
-    .rst (rst),
-    .read (read_data_array[0]),
-    .write_en (write_mask1),
-    .rindex (index),
-    .windex (index),
-    .datain (datain),
-    .dataout (dataout1)
-);
+ram_array data_array1 (
+	.byteena_a(write_mask1),
+	.data(datain),
+	.rdaddress(index),
+	.rdclock(~clk),
+	.rden(read_data_array[0]),
+	.wraddress(index),
+	.wrclock(~clk),
+	.wren(write_en1),
+	.q(dataout1)
+	);
 
-data_array data_array2 (
-    .clk (clk),
-    .rst (rst),
-    .read (read_data_array[1]),
-    .write_en (write_mask2),
-    .rindex (index),
-    .windex (index),
-    .datain (datain),
-    .dataout (dataout2)
-);
+ram_array data_array2 (
+	.byteena_a(write_mask2),
+	.data(datain),
+	.rdaddress(index),
+	.rdclock(~clk),
+	.rden(read_data_array[1]),
+	.wraddress(index),
+	.wrclock(~clk),
+	.wren(write_en2),
+	.q(dataout2)
+	);
 
 /*****************************************************************************/
 
@@ -160,20 +161,24 @@ always_comb begin : MUXES
 
     unique case (write_sel)
     	2'b00: begin 
-		datain = mem_wdata256;
-		write_mask = 32'b0;
+			datain = mem_wdata256;
+			write_mask = 32'hffffffff;
+			write_en = 1'b0;
 		end
     	2'b01: begin
-		datain = pmem_rdata;
-		write_mask = 32'hffffffff;
+			datain = pmem_rdata;
+			write_mask = 32'hffffffff;
+			write_en = 1'b1;
 		end
 		2'b10: begin
-		datain = mem_wdata256;
-		write_mask = mem_byte_enable256;
+			datain = mem_wdata256;
+			write_mask = mem_byte_enable256;
+			write_en = 1'b1;
 		end
 		default: begin
-		datain = mem_wdata256;
-		write_mask = 32'b0;
+			datain = mem_wdata256;
+			write_mask = 32'hffffffff;
+			write_en = 1'b0;
 		end
     endcase
     unique case (way_sel)
@@ -182,18 +187,24 @@ always_comb begin : MUXES
     		pmem_wdata = dataout1;
 			write_mask1 = write_mask;
 			write_mask2 = 32'b0;
+			write_en1 = write_en;
+			write_en2 = 1'b0;
     	end
     	1'b1: begin
     		pmem_address = zext_tag2;
     		pmem_wdata = dataout2;
 			write_mask1 = 32'b0;
 			write_mask2 = write_mask;
+			write_en1 = 1'b0;
+			write_en2 = write_en;
     	end
 		default: begin
 			pmem_address = zext_tag1;
     		pmem_wdata = dataout1;
 			write_mask1 = write_mask;
 			write_mask2 = 32'b0;
+			write_en1 = write_en;
+			write_en2 = 1'b0;
 		end
     endcase
 end

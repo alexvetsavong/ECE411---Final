@@ -158,7 +158,7 @@ register if_id_i_mem_data_reg(
 // ID Modules
 regfile regfile(
   .clk  (clk),	.rst (rst),
-  .load (wb_ctrl.load_regfile & load_wb & !(wb_rd)),
+  .load (wb_ctrl.load_regfile && load_wb),
   .read (read_regfile),
   .in   (wb_regfilemux_out),
 	.src_a (id_rs1),

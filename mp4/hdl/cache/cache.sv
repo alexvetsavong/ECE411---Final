@@ -41,8 +41,6 @@ logic set_lru;
 logic set_valid;
 logic [1:0] load_tag;
 logic way_sel;
-logic write_en1;
-logic write_en2;
 logic [1:0] write_sel;
 logic [1:0] load_valid;
 logic load_way_reg;
@@ -66,8 +64,6 @@ cache_control control
 	.load_lru (load_lru),
 	.set_lru (set_lru),
 	.way_sel (way_sel),
-	.write_en1 (write_en1),
-	.write_en2 (write_en2),
 	.pmem_resp (pmem_resp),
 	.pmem_write (pmem_write),
 	.pmem_read (pmem_read),
@@ -98,8 +94,6 @@ cache_datapath datapath
 	.load_lru (load_lru),
 	.set_lru (set_lru),
 	.way_sel (way_sel),
-	.write_en1 (write_en1),
-	.write_en2 (write_en2),
 	.write_sel (write_sel),
 	.load_valid (load_valid),
 	.set_valid (set_valid),
