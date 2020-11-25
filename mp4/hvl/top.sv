@@ -26,6 +26,22 @@ bit f;
 
 logic [2:0] counter = 3'b000;
 logic should_halt;
+logic rs2_valid;
+
+always_comb begin
+    case (dut.i_datapath.wb_ctrl.opcode)
+        7'b0110111: rs2_valid = 1'b0; //load upper immediate (U type)
+        7'b0010111: rs2_valid = 1'b0; //add upper immediate PC (U type)
+        7'b1101111: rs2_valid = 1'b0; //jump and link (J type)
+        7'b1100111: rs2_valid = 1'b0; //jump and link register (I type)
+        7'b1100011: rs2_valid = 1'b1; //branch (B type)
+        7'b0000011: rs2_valid = 1'b0; //load (I type)
+        7'b0100011: rs2_valid = 1'b1; //store (S type)
+        7'b0010011: rs2_valid = 1'b0; //arith ops with register/immediate operands (I type)
+        7'b0110011: rs2_valid = 1'b1; //arith ops with register operands (R type)
+        7'b1110011: rs2_valid = 1'b0; //control and status register (I type)
+    endcase
+end
 
 assign rvfi.commit = dut.i_datapath.wb_ctrl.commit && dut.i_datapath.load_wb;
 initial rvfi.order = 0;
@@ -41,7 +57,7 @@ assign rvfi.inst = dut.i_datapath.wb_i_mem_data;
 assign rvfi.trap = dut.i_datapath.wb_trap;
 // Regfile:
 assign rvfi.rs1_addr = dut.i_datapath.wb_rs1;
-assign rvfi.rs2_addr = dut.i_datapath.wb_rs2;
+assign rvfi.rs2_addr = (rs2_valid) ? dut.i_datapath.wb_rs2 : 5'b0;
 assign rvfi.rs1_rdata = dut.i_datapath.wb_rs1_out;
 assign rvfi.rs2_rdata = (dut.i_datapath.wb_rs1 == dut.i_datapath.wb_rs2) ? dut.i_datapath.wb_rs1_out : dut.i_datapath.wb_rs2_out;
 assign rvfi.load_regfile = dut.i_datapath.wb_ctrl.load_regfile;
