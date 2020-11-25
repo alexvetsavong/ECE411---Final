@@ -27,7 +27,7 @@ bit f;
 logic [2:0] counter = 3'b000;
 logic should_halt;
 
-assign rvfi.commit = (((dut.i_datapath.wb_ctrl.load_regfile) & (dut.i_datapath.load_wb)) && (dut.i_datapath.wb_rd != 5'b0)); //|| (dut.i_datapath.is_br && !dut.i_datapath.force_pcplus4); // Set high when a valid instruction is modifying regfile or PC
+assign rvfi.commit = dut.i_datapath.wb_ctrl.commit && dut.i_datapath.load_wb;
 initial rvfi.order = 0;
 always @(posedge itf.clk iff rvfi.commit) rvfi.order <= rvfi.order + 1; // Modify for OoO
 always @(posedge itf.clk iff should_halt) counter <= counter + 1;
@@ -43,14 +43,14 @@ assign rvfi.trap = dut.i_datapath.wb_trap;
 assign rvfi.rs1_addr = dut.i_datapath.wb_rs1;
 assign rvfi.rs2_addr = dut.i_datapath.wb_rs2;
 assign rvfi.rs1_rdata = dut.i_datapath.wb_rs1_out;
-assign rvfi.rs2_rdata = dut.i_datapath.wb_rs2_out;
+assign rvfi.rs2_rdata = (dut.i_datapath.wb_rs1 == dut.i_datapath.wb_rs2) ? dut.i_datapath.wb_rs1_out : dut.i_datapath.wb_rs2_out;
 assign rvfi.load_regfile = dut.i_datapath.wb_ctrl.load_regfile;
 assign rvfi.rd_addr = dut.i_datapath.wb_rd;
-assign rvfi.rd_wdata = dut.i_datapath.wb_regfilemux_out;
+assign rvfi.rd_wdata = (dut.i_datapath.wb_rd != 5'b0) ? dut.i_datapath.wb_regfilemux_out : 32'b0;
 
 // PC:
 assign rvfi.pc_rdata = dut.i_datapath.wb_pc_out;
-assign rvfi.pc_wdata = dut.i_datapath.mem_pc_out;
+assign rvfi.pc_wdata = dut.i_datapath.wb_is_br ? dut.i_datapath.wb_alu_out : dut.i_datapath.mem_pc_out;
 
 // Memory:
 assign rvfi.mem_addr = dut.i_datapath.wb_d_mem_address;

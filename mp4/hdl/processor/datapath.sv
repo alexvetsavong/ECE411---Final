@@ -34,7 +34,7 @@ module datapath
 );
 /**************** Signals ****************/
 logic is_br;
-logic ms_flush;
+logic ms_flush, ms_flush1;
 logic halt;
 
 logic if_flush;
@@ -77,12 +77,12 @@ rv32i_ctrl_word ex_ctrl;
 // EX stage:
 rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out, ex_cmpmux1_out, ex_cmpmux2_out;
 logic ex_br_en;
-rv32i_word ex_alu_out;
+rv32i_word ex_alu_out, ex_rs1_fwd, ex_rs2_fwd;
 
 // EX/MEM
 rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out, mem_i_mem_data;
 logic [4:0] mem_rs1, mem_rs2, mem_rd;
-logic mem_br_en;
+logic mem_br_en, mem_is_br;
 rv32i_ctrl_word mem_ctrl;
 
 logic trap;
@@ -96,7 +96,7 @@ rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
 rv32i_word wb_pc_out, wb_rs1_out, wb_rs2_out, wb_imm, wb_alu_out, wb_i_mem_data;
 logic [4:0] wb_rs1, wb_rs2, wb_rd;
 logic [3:0] wb_rmask, wb_wmask;
-logic wb_trap;
+logic wb_trap, wb_is_br;
 
 // WB
 rv32i_word wb_regfilemux_out, wb_d_mem_data;
@@ -170,37 +170,37 @@ regfile regfile(
 
 // ID/EX:
 register id_ex_pc_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_pc_out), .out  (ex_pc_out)
 );
 
 register id_ex_i_mem_data_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_i_mem_data), .out  (ex_i_mem_data)
 );
 
 register #(.width(5)) id_ex_rs1_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_rs1), .out  (ex_rs1)
 );
 
 register #(.width(5)) id_ex_rs2_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_rs2), .out  (ex_rs2)
 );
 
 register #(.width(5)) id_ex_rd_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_rd), .out  (ex_rd)
 );
 
 register id_ex_imm_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_imm), .out  (ex_imm)
 );
 
 ctrl_reg id_ex_ctrl_reg(
-    .clk  (clk), .rst (ms_flush || id_flush), .load (load_id),
+    .clk  (clk), .rst (ms_flush || ms_flush1 || id_flush), .load (load_id),
     .in   (id_ctrl), .out  (ex_ctrl)
 );
 
@@ -222,7 +222,7 @@ cmp CMP(
 // EX/MEM
 register ex_mem_pc_reg(		// PC Adder + Reg
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
-    .in   (ex_pc_out + 4), .out  (mem_pc_out)
+    .in   (ex_pc_out), .out  (mem_pc_out)
 );
 
 register ex_mem_i_mem_data_reg(
@@ -252,12 +252,12 @@ register ex_mem_alu_reg(
 
 register ex_mem_rs1_out_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
-    .in   (ex_rs1_out), .out  (mem_rs1_out)
+    .in   (ex_rs1_fwd), .out  (mem_rs1_out)
 );
 
 register ex_mem_rs2_out_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
-    .in   (ex_rs2_out), .out  (mem_rs2_out)
+    .in   (ex_rs2_fwd), .out  (mem_rs2_out)
 );
 
 register #(.width(1)) ex_mem_br_reg(
@@ -268,6 +268,11 @@ register #(.width(1)) ex_mem_br_reg(
 register ex_mem_imm_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_imm), .out  (mem_imm)
+);
+
+ctrl_reg ex_mem_is_br_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (is_br), .out  (mem_is_br)
 );
 
 ctrl_reg ex_mem_ctrl_reg(
@@ -430,6 +435,11 @@ register mem_wb_imm_reg(
     .in   (mem_imm), .out  (wb_imm)		// Goes to regfilemux
 );
 
+ctrl_reg mem_wb_is_br_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (mem_is_br), .out  (wb_is_br)
+);
+
 ctrl_reg mem_wb_ctrl_reg(
     .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_ctrl), .out  (wb_ctrl)
@@ -480,6 +490,9 @@ always_comb begin
   mem_flush = 1'b0;
   wb_flush = 1'b0;
 
+  ex_rs1_fwd = ex_rs1_out;
+  ex_rs2_fwd = ex_rs2_out;
+
 	// MUX before PCMUX in the datapath diagram
     unique case (is_br)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
@@ -523,18 +536,24 @@ always_comb begin
             if (mem_ctrl.opcode == op_load) begin
 				ex_alumux3_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-		    end else
+				ex_rs1_fwd = mem_regfilemux_out;
+		    end 
+		    else begin
                 ex_alumux3_out = mem_regfilemux_out;
+                ex_rs1_fwd = mem_regfilemux_out;
+            end
 		end
 		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
           ex_alumux3_out = wb_regfilemux_out;
+          ex_rs1_fwd = wb_regfilemux_out;
 		 end
 		 else begin 	// no data hazards; set default values.
 		     ex_alumux3_out = ex_alumux1_out;
 		 end
 	end
-	else
+	else begin
 	    ex_alumux3_out = ex_alumux1_out;
+	end
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
@@ -542,19 +561,24 @@ always_comb begin
 		    if (mem_ctrl.opcode == op_load) begin
 				ex_alumux4_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+				ex_rs2_fwd = mem_regfilemux_out;
 			end
-            else
+            else begin
 		        ex_alumux4_out = mem_regfilemux_out;
+		    	ex_rs2_fwd = mem_regfilemux_out;
+		    end
 		 end
 		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
 		    ex_alumux4_out = wb_regfilemux_out;
+		    ex_rs2_fwd = wb_regfilemux_out;
 		 end
 		 else begin
 		     ex_alumux4_out = ex_alumux2_out;
 		 end
 	end
-	else
+	else begin
 	    ex_alumux4_out = ex_alumux2_out;
+	end
 	
 	// CMPMUX
 	unique case (ex_ctrl.cmpmux_sel)
@@ -568,12 +592,16 @@ always_comb begin
 		  if (mem_ctrl.opcode == op_load) begin
 		  	    ex_cmpmux1_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+				ex_rs1_fwd = mem_regfilemux_out;
 		  end
-      else
+      	else begin
 				ex_cmpmux1_out = mem_regfilemux_out;
+				ex_rs1_fwd = mem_regfilemux_out;
+		end
 	 end
 	 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
 		ex_cmpmux1_out = wb_regfilemux_out;
+		ex_rs1_fwd = wb_regfilemux_out;
 	 end
 	 else begin 	// no data hazards; set default values.
 		ex_cmpmux1_out = ex_rs1_out;
@@ -585,26 +613,31 @@ always_comb begin
 		    if (mem_ctrl.opcode == op_load) begin
 		     	ex_cmpmux2_out = mem_regfilemux_out;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+				ex_rs2_fwd = mem_regfilemux_out;
 			end
-            else
+            else begin
 		        ex_cmpmux2_out = mem_regfilemux_out;
+		    	ex_rs2_fwd = mem_regfilemux_out;
+		    end
 		end
 		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
             ex_cmpmux2_out = wb_regfilemux_out;
+            ex_rs2_fwd = wb_regfilemux_out;
 		 end
 		 else begin
 		     ex_cmpmux2_out = ex_cmpmux_out;
 		 end
 	end
-	else
+	else begin
 	    ex_cmpmux2_out = ex_cmpmux_out;
+	end
 
 	// REGFILEMUX
 	unique case (mem_ctrl.regfilemux_sel)
         regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
 		regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en};	// already ZEXTed
 		regfilemux::u_imm: mem_regfilemux_out = mem_imm;	
-		regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out;	        // already +4'ed in EX stage
+		regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out + 4;	        // already +4'ed in EX stage
 		regfilemux::lw: begin
             unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = d_mem_data;
@@ -676,6 +709,10 @@ always_ff @(posedge clk) begin
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
+	if(ms_flush || (ms_flush1 && (!i_mem_resp || data_stall)))
+		ms_flush1 <= 1'b1;
+	else
+		ms_flush1 <= 1'b0;
 end
 
 endmodule : datapath

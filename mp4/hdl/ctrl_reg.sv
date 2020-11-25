@@ -31,7 +31,7 @@ end
 
 always_comb
 begin
-	 reset_val.mem_read = 1'b0; 
+    reset_val.mem_read = 1'b0; 
     reset_val.mem_write = 1'b0;
 
     reset_val.immmux_sel = immmux::i_imm;
@@ -51,6 +51,9 @@ begin
 
     reset_val.opcode = rv32i_opcode'(7'b0010011);
     reset_val.funct3 = 3'b000;
+
+    reset_val.commit = 1'b0;
+
     out = data;
 end
 
