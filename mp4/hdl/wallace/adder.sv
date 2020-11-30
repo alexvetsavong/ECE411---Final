@@ -21,6 +21,6 @@ module fulladder(
 assign s = a ^ b ^ cin;
 assign c = (a & b) | (a & cin) | (a & cin);
 
-endmodule: halfadder
+endmodule: fulladder
 
 // TODO: 32-bit Carry Propagate Adder or CLA for the last stage

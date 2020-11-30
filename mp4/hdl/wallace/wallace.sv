@@ -5,8 +5,15 @@ module wallace(
   output logic [63:0] s
 );
 
-// Partial Products [row#][bit#] for 1st stage
+// Partial Products [row#][bit#]
 logic [31:0][31:0] p1;
+logic [21:0][31:0] p2;
+
+// temp array: bits that do not need adders
+logic [200:0] t;
+
+// generate full adders
+genvar g;
 
 always_comb begin
   int i, j;
@@ -24,20 +31,67 @@ end
 => 5 rows after reduction => 1 * (group of 3 rows) + (group of 2 rows) 
 => 4 rows after reduction => 1 * (group of 3 rows) + (group of 1 row) 
 => 3 rows after reduction => 1 * (group of 3 rows)
-=> 2 rows after reduction => Final addition! (32-bit Carry Propagate Adder)
+=> 2 rows after reduction => Final addition! (64-bit Carry Propagate Adder)
 */
 
 /*
 	1st stage:
+	     00000000000000000000000000000000
+	    10001000100010001000100010001000
+	   10001000100010001000100010001000
+		
+		X100.........................1000X
+		00000000000000000000000000000000
+		
 	  00000000000000000000000000000000
 	 10001000100010001000100010001000
 	10001000100010001000100010001000
 	2 direct assign, 2 half adders, 30 full adders - repeat 10 times.
 */
-// Group 1: row 0-2
-// Group 2: row 3-5
-// Group 3: row 6-8
-// Group 4: row 9-11
+// Group 1: row 0-2 -> row 0-1
+assign t[0] = p1[0][0];
+halfadder ha0(.a(p1[0][1]), .b(p1[1][0]), .s(p2[0][0]), .c(p2[1][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa0generator
+    fulladder fa0(.a(p1[0][g]), .b(p1[1][g - 1]), .cin(p1[2][g - 2]), .s(p2[0][g - 1]), .c(p2[1][g - 1]));
+  end
+endgenerate
+halfadder ha1(.a(p1[1][31]), .b(p1[2][30]), .s(p2[0][31]), .c(p2[1][31]));
+assign t[1] = p1[2][31];
+
+// Group 2: row 3-5 -> row 2-3
+assign t[2] = p1[3][0];
+halfadder ha2(.a(p1[3][1]), .b(p1[4][0]), .s(p2[2][0]), .c(p2[3][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa1generator
+    fulladder fa1(.a(p1[3][g]), .b(p1[4][g - 1]), .cin(p1[5][g - 2]), .s(p2[2][g - 1]), .c(p2[3][g - 1]));
+  end
+endgenerate
+halfadder ha3(.a(p1[4][31]), .b(p1[5][30]), .s(p2[2][31]), .c(p2[3][31]));
+assign t[3] = p1[5][31];
+
+// Group 3: row 6-8 -> row 4-5
+assign t[4] = p1[6][0];
+halfadder ha4(.a(p1[6][1]), .b(p1[7][0]), .s(p2[4][0]), .c(p2[5][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa1generator
+    fulladder fa2(.a(p1[6][g]), .b(p1[7][g - 1]), .cin(p1[8][g - 2]), .s(p2[4][g - 1]), .c(p2[5][g - 1]));
+  end
+endgenerate
+halfadder ha5(.a(p1[7][31]), .b(p1[8][30]), .s(p2[4][31]), .c(p2[5][31]));
+assign t[5] = p1[8][31];
+
+// Group 4: row 9-11 -> row 6-7
+assign t[6] = p1[9][0];
+halfadder ha6(.a(p1[9][1]), .b(p1[10][0]), .s(p2[6][0]), .c(p2[7][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa1generator
+    fulladder fa3(.a(p1[9][g]), .b(p1[10][g - 1]), .cin(p1[11][g - 2]), .s(p2[6][g - 1]), .c(p2[7][g - 1]));
+  end
+endgenerate
+halfadder ha7(.a(p1[10][31]), .b(p1[11][30]), .s(p2[6][31]), .c(p2[7][31]));
+assign t[7] = p1[11][31];
+
 // Group 5: row 12-14
 // Group 6: row 15-17
 // Group 7: row 18-20
