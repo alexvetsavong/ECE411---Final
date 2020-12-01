@@ -74,7 +74,7 @@ assign t[3] = p1[5][31];
 assign t[4] = p1[6][0];
 halfadder ha4(.a(p1[6][1]), .b(p1[7][0]), .s(p2[4][0]), .c(p2[5][0]));
 generate
-  for(g = 2; g <= 31; g++) begin : fa1generator
+  for(g = 2; g <= 31; g++) begin : fa2generator
     fulladder fa2(.a(p1[6][g]), .b(p1[7][g - 1]), .cin(p1[8][g - 2]), .s(p2[4][g - 1]), .c(p2[5][g - 1]));
   end
 endgenerate
@@ -85,21 +85,82 @@ assign t[5] = p1[8][31];
 assign t[6] = p1[9][0];
 halfadder ha6(.a(p1[9][1]), .b(p1[10][0]), .s(p2[6][0]), .c(p2[7][0]));
 generate
-  for(g = 2; g <= 31; g++) begin : fa1generator
+  for(g = 2; g <= 31; g++) begin : fa3generator
     fulladder fa3(.a(p1[9][g]), .b(p1[10][g - 1]), .cin(p1[11][g - 2]), .s(p2[6][g - 1]), .c(p2[7][g - 1]));
   end
 endgenerate
 halfadder ha7(.a(p1[10][31]), .b(p1[11][30]), .s(p2[6][31]), .c(p2[7][31]));
 assign t[7] = p1[11][31];
 
-// Group 5: row 12-14
-// Group 6: row 15-17
-// Group 7: row 18-20
-// Group 8: row 21-23
-// Group 9: row 24-26
-// Group 10: row 27-29
-// Group 11: row 30-31
+// Group 5: row 12-14 -> row 8-9
+assign t[8] = p1[12][0];
+halfadder ha8(.a(p1[12][1]), .b(p1[13][0]), .s(p2[8][0]), .c(p2[9][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa4generator
+    fulladder fa4(.a(p1[12][g]), .b(p1[13][g - 1]), .cin(p1[14][g - 2]), .s(p2[8][g - 1]), .c(p2[9][g - 1]));
+  end
+endgenerate
+halfadder ha9(.a(p1[13][31]), .b(p1[14][30]), .s(p2[8][31]), .c(p2[9][31]));
+assign t[9] = p1[14][31];
 
+// Group 6: row 15-17 -> row 10-11
+assign t[10] = p1[15][0];
+halfadder ha10(.a(p1[15][1]), .b(p1[16][0]), .s(p2[10][0]), .c(p2[11][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa5generator
+    fulladder fa5(.a(p1[15][g]), .b(p1[16][g - 1]), .cin(p1[17][g - 2]), .s(p2[10][g - 1]), .c(p2[11][g - 1]));
+  end
+endgenerate
+halfadder ha11(.a(p1[16][31]), .b(p1[17][30]), .s(p2[10][31]), .c(p2[11][31]));
+assign t[11] = p1[17][31];
+
+// Group 7: row 18-20 -> row 12-13
+assign t[12] = p1[18][0];
+halfadder ha12(.a(p1[18][1]), .b(p1[19][0]), .s(p2[12][0]), .c(p2[13][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa6generator
+    fulladder fa6(.a(p1[18][g]), .b(p1[19][g - 1]), .cin(p1[20][g - 2]), .s(p2[12][g - 1]), .c(p2[13][g - 1]));
+  end
+endgenerate
+halfadder ha13(.a(p1[19][31]), .b(p1[20][30]), .s(p2[12][31]), .c(p2[13][31]));
+assign t[13] = p1[20][31];
+
+// Group 8: row 21-23 -> row 14-15
+assign t[14] = p1[21][0];
+halfadder ha14(.a(p1[21][1]), .b(p1[22][0]), .s(p2[14][0]), .c(p2[15][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa7generator
+    fulladder fa7(.a(p1[21][g]), .b(p1[22][g - 1]), .cin(p1[23][g - 2]), .s(p2[14][g - 1]), .c(p2[15][g - 1]));
+  end
+endgenerate
+halfadder ha15(.a(p1[22][31]), .b(p1[23][30]), .s(p2[14][31]), .c(p2[15][31]));
+assign t[15] = p1[23][31];
+
+// Group 9: row 24-26 -> row 16-17
+assign t[16] = p1[24][0];
+halfadder ha16(.a(p1[24][1]), .b(p1[25][0]), .s(p2[16][0]), .c(p2[17][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa8generator
+    fulladder fa8(.a(p1[24][g]), .b(p1[25][g - 1]), .cin(p1[26][g - 2]), .s(p2[16][g - 1]), .c(p2[17][g - 1]));
+  end
+endgenerate
+halfadder ha17(.a(p1[25][31]), .b(p1[26][30]), .s(p2[16][31]), .c(p2[17][31]));
+assign t[17] = p1[26][31];
+
+// Group 10: row 27-29 -> row 18-19
+assign t[18] = p1[27][0];
+halfadder ha18(.a(p1[27][1]), .b(p1[28][0]), .s(p2[18][0]), .c(p2[19][0]));
+generate
+  for(g = 2; g <= 31; g++) begin : fa9generator
+    fulladder fa9(.a(p1[27][g]), .b(p1[28][g - 1]), .cin(p1[29][g - 2]), .s(p2[18][g - 1]), .c(p2[19][g - 1]));
+  end
+endgenerate
+halfadder ha19(.a(p1[28][31]), .b(p1[29][30]), .s(p2[18][31]), .c(p2[19][31]));
+assign t[19] = p1[29][31];
+
+// Group 11: row 30-31 -> row 20-21
+assign p2[20] = p1[30];
+assign p2[21] = p1[31];
 /*
 	End of 1st stage: pp2[22rows][32bits]
 	10 * 32-bit partial product, 10 * 32-bit carry array, 2 * 32-bit unused arrays
