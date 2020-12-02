@@ -73,30 +73,31 @@ cache d_cache (
     .pmem_resp(d_pmem_resp)
 );
 
-arbiter _arbiter (
-	.clk(clk),
+l2cache _l2cache (
+    .clk(clk),
     .rst(rst),
 
-    .i_pmem_address(i_pmem_address),
-    .i_pmem_rdata(i_pmem_rdata),
-    .i_pmem_wdata(i_pmem_wdata),
-    .i_pmem_read(i_pmem_read),
-    .i_pmem_write(i_pmem_write),
-    .i_pmem_resp(i_pmem_resp),
+    .i_mem_address(i_pmem_address),
+    .i_mem_rdata(i_pmem_rdata),
+    .i_mem_wdata(i_pmem_wdata),
+    .i_mem_read(i_pmem_read),
+    .i_mem_write(i_pmem_write),
+    .i_mem_resp(i_pmem_resp),
 
-    .d_pmem_address(d_pmem_address),
-    .d_pmem_rdata(d_pmem_rdata),
-    .d_pmem_wdata(d_pmem_wdata),
-    .d_pmem_read(d_pmem_read),
-    .d_pmem_write(d_pmem_write),
-    .d_pmem_resp(d_pmem_resp),
+    .d_mem_address(d_pmem_address),
+    .d_mem_rdata(d_pmem_rdata),
+    .d_mem_wdata(d_pmem_wdata),
+    .d_mem_read(d_pmem_read),
+    .d_mem_write(d_pmem_write),
+    .d_mem_resp(d_pmem_resp),
 
-    .c_pmem_address(c_pmem_address),
-    .c_pmem_rdata(c_pmem_rdata),
-    .c_pmem_wdata(c_pmem_wdata),
-    .c_pmem_read(c_pmem_read),
-    .c_pmem_write(c_pmem_write),
-    .c_pmem_resp(c_pmem_resp)
+    .pmem_address(c_pmem_address),
+    .pmem_rdata(c_pmem_rdata),
+    .pmem_wdata(c_pmem_wdata),
+    .pmem_read(c_pmem_read),
+    .pmem_write(c_pmem_write),
+    .pmem_resp(c_pmem_resp)
+
 );
 
 cacheline_adaptor _cacheline_adaptor (
