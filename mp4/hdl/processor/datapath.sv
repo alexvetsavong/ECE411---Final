@@ -388,7 +388,7 @@ register mem_wb_regfilemux_out_reg(
 	.in   (mem_regfilemux_out), .out (wb_regfilemux_out)
 );
 
-assign is_br = (ex_ctrl.jmp_op) || (ex_ctrl.br_op & ex_br_en);
+assign is_br = ex_ctrl.br_op & ex_br_en;
 
 /**************** MUXES ****************/
 always_comb begin
