@@ -470,7 +470,7 @@ register #(.width(1)) mem_wb_trap_reg(
     .in   (trap), .out  (wb_trap)
 );
 
-assign is_br = ex_ctrl.br_op & ex_br_en;
+assign is_br = ex_ctrl.jmp_op || (ex_ctrl.br_op & ex_br_en);
 
 /**************** MUXES ****************/
 always_comb begin
