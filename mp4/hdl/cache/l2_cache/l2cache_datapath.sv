@@ -40,10 +40,10 @@ logic comp1, comp2;
 l2ram_array data_array1 (
 	.data(datain),
 	.rdaddress(index),
-	.rdclock(~clk),
+	.rdclock(clk),
 	.rden(read_data_array[0]),
 	.wraddress(index),
-	.wrclock(~clk),
+	.wrclock(clk),
 	.wren(write_en1),
 	.q(dataout1)
 	);
@@ -51,10 +51,10 @@ l2ram_array data_array1 (
 l2ram_array data_array2 (
 	.data(datain),
 	.rdaddress(index),
-	.rdclock(~clk),
+	.rdclock(clk),
 	.rden(read_data_array[1]),
 	.wraddress(index),
-	.wrclock(~clk),
+	.wrclock(clk),
 	.wren(write_en2),
 	.q(dataout2)
 	);
