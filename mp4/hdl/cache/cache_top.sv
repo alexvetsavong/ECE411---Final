@@ -30,7 +30,7 @@ module cache_top
 );
 
 parameter L2_CACHE = 1;
-parameter L1_FOUR_WAY = 0;
+parameter L1_FOUR_WAY = 1;
 
 rv32i_word i_pmem_address, d_pmem_address, c_pmem_address;
 logic [255:0] i_pmem_rdata, d_pmem_rdata, c_pmem_rdata;
@@ -38,6 +38,11 @@ logic [255:0] i_pmem_wdata, d_pmem_wdata, c_pmem_wdata;
 logic i_pmem_read, d_pmem_read, c_pmem_read;
 logic i_pmem_write, d_pmem_write, c_pmem_write;
 logic i_pmem_resp, d_pmem_resp, c_pmem_resp;
+logic i_miss, d_miss, l2_miss, l2_serve;
+
+assign i_miss = (i_pmem_read || i_pmem_write) && i_pmem_resp;
+assign d_miss = (d_pmem_read || d_pmem_write) && d_pmem_resp;
+
 
 generate 
 if (L1_FOUR_WAY == 1) begin
@@ -143,8 +148,9 @@ l2cache _l2cache (
     .pmem_read(c_pmem_read),
     .pmem_write(c_pmem_write),
     .pmem_resp(c_pmem_resp)
-
 );
+assign l2_serve = (i_pmem_resp || d_pmem_resp);
+assign l2_miss = (c_pmem_read || c_pmem_write) && c_pmem_resp;
 end 
 else begin
 arbiter _arbiter (
@@ -173,6 +179,8 @@ arbiter _arbiter (
     .c_pmem_resp(c_pmem_resp)
 
 );
+assign l2_serve = 1'b0;
+assign l2_miss = 1'b0;
 end
 
 endgenerate

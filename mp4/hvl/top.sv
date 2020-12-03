@@ -77,6 +77,7 @@ assign rvfi.mem_wdata = dut.i_datapath.wb_rs2_out;
 
 /**************************** End RVFIMON signals ****************************/
 
+
 /********************* Assign Shadow Memory Signals Here *********************/
 // This section not required until CP2
 /*
@@ -119,23 +120,25 @@ assign itf.data_rdata = dut.d_mem_rdata;
 assign itf.registers = dut.i_datapath.regfile.data;
 
 /*********************** Instantiate your design here ************************/
-/*
-The following signals need to be connected to your top level:
-Clock and reset signals:
 
-    itf.clk
-    itf.rst
+int l1i_serve_ctr = 0;
+int l1i_miss_ctr = 0;
+int l1d_serve_ctr = 0;
+int l1d_miss_ctr = 0;
+int l2_serve_ctr = 0;
+int l2_miss_ctr = 0;
 
-Burst Memory Ports:
-    itf.mem_read
-    itf.mem_write
-    itf.mem_wdata
-    itf.mem_rdata
-    itf.mem_addr
-    itf.mem_resp
+initial $display("l2_cache field: %d", dut.i_cache_top.L2_CACHE);
+initial $display("l1_four_way field: %d", dut.i_cache_top.L1_FOUR_WAY);
 
-Please refer to tb_itf.sv for more information.
-*/
+always @(posedge itf.clk iff dut.i_cache_top.i_mem_resp) l1i_serve_ctr <= l1i_serve_ctr + 1;
+always @(posedge itf.clk iff dut.i_cache_top.i_miss) l1i_miss_ctr <= l1i_miss_ctr + 1;
+
+always @(posedge itf.clk iff dut.i_cache_top.d_mem_resp) l1d_serve_ctr <= l1d_serve_ctr + 1;
+always @(posedge itf.clk iff dut.i_cache_top.d_miss) l1d_miss_ctr <= l1d_miss_ctr + 1;
+
+always @(posedge itf.clk iff dut.i_cache_top.l2_serve) l2_serve_ctr <= l2_serve_ctr + 1;
+always @(posedge itf.clk iff dut.i_cache_top.l2_miss) l2_miss_ctr <= l2_miss_ctr + 1;
 
 mp4 dut(
     .clk(itf.clk),
