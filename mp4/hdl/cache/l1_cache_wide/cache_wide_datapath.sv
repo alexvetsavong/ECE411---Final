@@ -174,10 +174,10 @@ always_ff @(posedge clk) begin
 		valid_array2 <= 8'b0;
 		valid_array3 <= 8'b0;
 		valid_array4 <= 8'b0;
-		tag_array1 <= 192'bX;
-		tag_array2 <= 192'bX;
-		tag_array3 <= 192'bX;
-		tag_array4 <= 192'bX;
+		tag_array1 <= 192'b0;
+		tag_array2 <= 192'b0;
+		tag_array3 <= 192'b0;
+		tag_array4 <= 192'b0;
 	end
 	else begin
 		if(load_way_reg)

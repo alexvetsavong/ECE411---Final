@@ -113,8 +113,8 @@ always_ff @(posedge clk) begin
 	dirty_array2 <= 8'b0;
 	valid_array1 <= 8'b0;
 	valid_array2 <= 8'b0;
-	tag_array1 <= 192'bX;
-	tag_array2 <= 192'bX;
+	tag_array1 <= 192'b0;
+	tag_array2 <= 192'b0;
 	end
 	else begin
 		if(load_way_reg)
