@@ -23,13 +23,11 @@ end
 	  X1001XXX
 */
 logic [(2*width-1):0] f1, f2;
-wallace_reduction(.p(p), .f1(f1), .f2(f2));
+wallace_reduction wr(.p(p), .f1(f1), .f2(f2));
 
 assign product = f1 + f2;
 
-
-
-
+endmodule: wallace
 
 
 
@@ -175,4 +173,3 @@ assign product = f1 + f2;
 // use 64-bit CLA to add the final results together
 
 
-endmodule: wallace

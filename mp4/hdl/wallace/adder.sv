@@ -23,23 +23,24 @@ assign c = (a & b) | (a & cin) | (a & cin);
 
 endmodule: fulladder
 
-module wallace_3_to_2(
-  input logic a1[],
-  input logic a2[],
-  input logic a3[],
-  output logic [] b1,
-  output logic [] b2,
+module wallace_3_to_2
+#(parameter width = 32)
+(
+  input logic[(2*width-1):0] a1,
+  input logic[(2*width-1):0] a2,
+  input logic[(2*width-1):0] a3,
+  output logic[(2*width-1):0] b1,
+  output logic[(2*width-1):0] b2
 );
 
 genvar g;
-byte width = a1.size;
-generate: full_adders_layer
-  for(g = 0; g < a1.size - 1; g++) begin
-    fulladder(.a(a1[g]), .b(a2[g]), .cin(a3[g]), .s(b1[g]), .c(b2[g + 1]));
+generate
+  for(g = 0; g < 2*width-1; g++) begin : fulladder_layer
+    fulladder fa1(.a(a1[g]), .b(a2[g]), .cin(a3[g]), .s(b1[g]), .c(b2[g + 1]));
   end
-endgenerate: full_adders_layer
+endgenerate
 
-fulladder(.a(a1[width - 1]), .b(a2[width - 1]), .cin(a3[width - 1]), .s(b1[width - 1]), .c());
+fulladder fa2(.a(a1[2*width-1]), .b(a2[2*width-1]), .cin(a3[2*width-1]), .s(b1[2*width-1]), .c());
 
 endmodule: wallace_3_to_2
 
