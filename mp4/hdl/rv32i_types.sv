@@ -94,6 +94,9 @@ typedef struct packed {
     logic [2:0] funct3; 
 
     logic commit;
+	 
+	 logic multiplier_start;
+	 logic divider_start;
 
 } rv32i_ctrl_word;
 

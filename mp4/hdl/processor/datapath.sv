@@ -78,6 +78,9 @@ rv32i_ctrl_word ex_ctrl;
 rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out, ex_cmpmux1_out, ex_cmpmux2_out;
 logic ex_br_en;
 rv32i_word ex_alu_out, ex_rs1_fwd, ex_rs2_fwd;
+logic [63:0] ex_multiplier_out;
+logic [63:0] ex_divider_out;
+logic ex_multiplier_done, ex_divider_done;
 
 // EX/MEM
 rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out, mem_i_mem_data;
@@ -87,6 +90,8 @@ rv32i_ctrl_word mem_ctrl;
 
 logic trap;
 logic [3:0] rmask, wmask;
+logic [63:0] mem_multiplier_out;
+logic [63:0] mem_divider_out;
 
 // MEM
 rv32i_word mem_regfilemux_out, mem_regfilemux_extra;
@@ -219,6 +224,28 @@ cmp CMP(
 	 .out (ex_br_en)
 );
 
+add_shift_multiplier multiplier(
+    .clk_i          ( clk          ),
+    .reset_n_i      ( ~rst      ),	//change later
+    .multiplicand_i ( ex_alumux3_out ),
+    .multiplier_i   ( ex_alumux4_out ),
+    .start_i        ( ex_ctrl.multiplier_start),
+    .ready_o        (           ),
+    .product_o      ( ex_multiplier_out),
+    .done_o         ( ex_multiplier_done )
+);
+
+divider divider (
+    .clk_i        ( clk          ),
+    .reset_i      ( rst      ),	//change later
+    .dividend_i   ( ex_alumux3_out ),
+    .divisor_i    ( ex_alumux4_out ),
+    .start_i      ( ex_ctrl.multiplier_start ),
+    .quotient_o   ( ex_divider_out[31:0] ),
+	 .remainder_o  ( ex_divider_out[63:32]),
+    .done_o       ( ex_divider_done )
+);
+
 // EX/MEM
 register ex_mem_pc_reg(		// PC Adder + Reg
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
@@ -278,6 +305,16 @@ ctrl_reg ex_mem_is_br_reg(
 ctrl_reg ex_mem_ctrl_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (ex_ctrl), .out  (mem_ctrl)
+);
+
+register #(.width(64)) ex_mem_multiplier_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_multiplier_out), .out  (mem_multiplier_out)
+);
+
+register #(.width(64)) ex_mem_divider_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_divider_out), .out  (mem_divider_out)
 );
 
 // MEM
@@ -683,6 +720,10 @@ always_comb begin
                 2'b11: mem_regfilemux_out = 32'bX;
             endcase
         end
+		  regfilemux::mul: mem_regfilemux_out = mem_multiplier_out[31:0];
+	     regfilemux::mulh: mem_regfilemux_out = mem_multiplier_out[63:32];
+	     regfilemux::div: mem_regfilemux_out = mem_divider_out[31:0];
+	     regfilemux::rem: mem_regfilemux_out = mem_divider_out[63:32];
         default: `BAD_MUX_SEL;
     endcase
 
