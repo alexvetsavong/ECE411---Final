@@ -34,11 +34,11 @@ always_comb begin : state_actions
 		done_o = 1'b0;
 		counter = 0;
 	 end
-	 // subtract state: if ds < dd, then: dd = dd - ds, q += 1
+	 // subtract state: if ds <= dd, then: dd = dd - ds, q += 1
     // else: do nothing. shift.
 	 subtract: begin
 	   done_o = 1'b0;
-	   if(ds < dd) begin
+	   if(ds <= dd) begin
 		  dd = dd - ds;
 		  q = q + 1;
 		end
@@ -62,13 +62,14 @@ always_comb begin : next_state_logic
   case(state)
     init:
 	   next_state = subtract;
-	 subtract:
-	   next_state = shift;
-	 shift: begin
+	 subtract: begin
 	   if (counter < 32)
-	     next_state = subtract;
+	     next_state = shift;
 		else
 		  next_state = done;
+	 end
+	 shift: begin
+	     next_state = subtract;
 	 end
 	 done: 
 	   next_state = done;
