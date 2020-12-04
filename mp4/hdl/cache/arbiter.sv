@@ -1,7 +1,7 @@
 import rv32i_types::*;
 
 module arbiter (
-	input clk,
+    input clk,
     input rst,
 
     input rv32i_word i_pmem_address,

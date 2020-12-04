@@ -89,7 +89,7 @@ logic trap;
 logic [3:0] rmask, wmask;
 
 // MEM
-rv32i_word mem_regfilemux_out;
+rv32i_word mem_regfilemux_out, mem_regfilemux_extra;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
@@ -450,6 +450,11 @@ register mem_wb_d_mem_addr_reg(
 	.in   (mem_alu_out), .out (wb_d_mem_address)
 );
 
+register mem_wb_regfilemux_extra_reg(
+	.clk  (clk), .rst (rst || mem_flush), .load (1'b1),
+	.in   (mem_regfilemux_out), .out (mem_regfilemux_extra)
+);
+
 register mem_wb_regfilemux_out_reg(
 	.clk  (clk), .rst (rst || mem_flush), .load (load_mem),
 	.in   (mem_regfilemux_out), .out (wb_regfilemux_out)
@@ -470,7 +475,7 @@ register #(.width(1)) mem_wb_trap_reg(
     .in   (trap), .out  (wb_trap)
 );
 
-assign is_br = ex_ctrl.br_op & ex_br_en;
+assign is_br = ex_ctrl.jmp_op || (ex_ctrl.br_op & ex_br_en);
 
 /**************** MUXES ****************/
 always_comb begin
@@ -534,9 +539,9 @@ always_comb begin
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
         if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
             if (mem_ctrl.opcode == op_load) begin
-				ex_alumux3_out = mem_regfilemux_out;
+				ex_alumux3_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-				ex_rs1_fwd = mem_regfilemux_out;
+				ex_rs1_fwd = mem_regfilemux_extra;
 		    end 
 		    else begin
                 ex_alumux3_out = mem_regfilemux_out;
@@ -559,9 +564,9 @@ always_comb begin
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin         
 		    if (mem_ctrl.opcode == op_load) begin
-				ex_alumux4_out = mem_regfilemux_out;
+				ex_alumux4_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-				ex_rs2_fwd = mem_regfilemux_out;
+				ex_rs2_fwd = mem_regfilemux_extra;
 			end
             else begin
 		        ex_alumux4_out = mem_regfilemux_out;
@@ -590,9 +595,9 @@ always_comb begin
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
 	 if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
 		  if (mem_ctrl.opcode == op_load) begin
-		  	    ex_cmpmux1_out = mem_regfilemux_out;
+		  	    ex_cmpmux1_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-				ex_rs1_fwd = mem_regfilemux_out;
+				ex_rs1_fwd = mem_regfilemux_extra;
 		  end
       	else begin
 				ex_cmpmux1_out = mem_regfilemux_out;
@@ -611,9 +616,9 @@ always_comb begin
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
 	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin
 		    if (mem_ctrl.opcode == op_load) begin
-		     	ex_cmpmux2_out = mem_regfilemux_out;
+		     	ex_cmpmux2_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-				ex_rs2_fwd = mem_regfilemux_out;
+				ex_rs2_fwd = mem_regfilemux_extra;
 			end
             else begin
 		        ex_cmpmux2_out = mem_regfilemux_out;
