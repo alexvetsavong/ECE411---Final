@@ -93,6 +93,8 @@ typedef struct packed {
     rv32i_opcode opcode;
     logic [2:0] funct3; 
 
+    logic commit;
+
 } rv32i_ctrl_word;
 
 

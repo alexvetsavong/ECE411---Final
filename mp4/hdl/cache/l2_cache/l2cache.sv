@@ -1,24 +1,24 @@
 import rv32i_types::*;
 
-module cache #(
-    parameter s_offset = 5,
-    parameter s_index  = 3,
-    parameter s_tag    = 32 - s_offset - s_index,
-    parameter s_mask   = 2**s_offset,
-    parameter s_line   = 8*s_mask,
-    parameter num_sets = 2**s_index
-)
+module l2cache
 (
     input clk,
     input rst,
-    input rv32i_word mem_address,
-    output rv32i_word mem_rdata,
-    input rv32i_word mem_wdata,
-    input logic mem_read,
-    input logic mem_write,
-    input [3:0] mem_byte_enable,
-    output logic mem_resp,
-
+    // To I-Cache
+    input rv32i_word i_mem_address,
+    output [255:0] i_mem_rdata,
+    input [255:0] i_mem_wdata,
+    input logic i_mem_read,
+    input logic i_mem_write,
+    output logic i_mem_resp,
+    // To D-Cache
+    input rv32i_word d_mem_address,
+    output [255:0] d_mem_rdata,
+    input [255:0] d_mem_wdata,
+    input logic d_mem_read,
+    input logic d_mem_write,
+    output logic d_mem_resp,
+    // To Cacheline Adaptor
     output rv32i_word pmem_address,
     input [255:0] pmem_rdata,
     output [255:0] pmem_wdata,
@@ -26,9 +26,6 @@ module cache #(
     output logic pmem_write,
     input logic pmem_resp
 );
-
-logic [255:0] mem_rdata256_out;
-assign pmem_wdata = mem_rdata256_out;
 
 logic [1:0] cache_hit;
 logic write_back;
@@ -41,16 +38,17 @@ logic set_lru;
 logic set_valid;
 logic [1:0] load_tag;
 logic way_sel;
-logic write_en1;
-logic write_en2;
 logic [1:0] write_sel;
 logic [1:0] load_valid;
 logic load_way_reg;
 logic [1:0] read_data_array;
-logic [255:0] mem_wdata256;
-logic [31:0] mem_byte_enable256;
 
-cache_control control
+rv32i_word mem_address;
+logic [255:0] mem_rdata;
+logic [255:0] mem_wdata;
+logic mem_read, mem_write, mem_resp;
+
+l2cache_control control
 (
 	.clk (clk),
 	.rst (rst),
@@ -66,8 +64,6 @@ cache_control control
 	.load_lru (load_lru),
 	.set_lru (set_lru),
 	.way_sel (way_sel),
-	.write_en1 (write_en1),
-	.write_en2 (write_en2),
 	.pmem_resp (pmem_resp),
 	.pmem_write (pmem_write),
 	.pmem_read (pmem_read),
@@ -79,16 +75,15 @@ cache_control control
 	.read_data_array (read_data_array)
 );
 
-cache_datapath datapath
+l2cache_datapath datapath
 (
 	.clk (clk),
 	.rst (rst),
 	.mem_address (mem_address),
 	.pmem_address (pmem_address),
 	.pmem_rdata (pmem_rdata),
-	.pmem_wdata (mem_rdata256_out),
-	.mem_wdata256 (mem_wdata256),
-	.mem_byte_enable256 (mem_byte_enable256),
+	.pmem_wdata (pmem_wdata),
+	.mem_wdata (mem_wdata),
 	.cache_hit (cache_hit),
 	.write_back (write_back),
 	.way_reg (way_reg),
@@ -98,8 +93,6 @@ cache_datapath datapath
 	.load_lru (load_lru),
 	.set_lru (set_lru),
 	.way_sel (way_sel),
-	.write_en1 (write_en1),
-	.write_en2 (write_en2),
 	.write_sel (write_sel),
 	.load_valid (load_valid),
 	.set_valid (set_valid),
@@ -108,15 +101,33 @@ cache_datapath datapath
 	.read_data_array (read_data_array)
 );
 
-bus_adapter bus_adapter
+assign mem_rdata = pmem_wdata;
+
+arbiter arbiter
 (
-	.mem_wdata256 (mem_wdata256),
-	.mem_rdata256 (mem_rdata256_out),
-	.mem_wdata (mem_wdata),
-	.mem_rdata (mem_rdata),
-	.mem_byte_enable (mem_byte_enable),
-	.mem_byte_enable256 (mem_byte_enable256),
-	.address(mem_address)
+    .clk(clk),
+    .rst(rst),
+
+    .i_pmem_address(i_mem_address),
+    .i_pmem_rdata(i_mem_rdata),
+    .i_pmem_wdata(i_mem_wdata),
+    .i_pmem_read(i_mem_read),
+    .i_pmem_write(i_mem_write),
+    .i_pmem_resp(i_mem_resp),
+
+    .d_pmem_address(d_mem_address),
+    .d_pmem_rdata(d_mem_rdata),
+    .d_pmem_wdata(d_mem_wdata),
+    .d_pmem_read(d_mem_read),
+    .d_pmem_write(d_mem_write),
+    .d_pmem_resp(d_mem_resp),
+
+    .c_pmem_address(mem_address),
+    .c_pmem_rdata(mem_rdata),
+    .c_pmem_wdata(mem_wdata),
+    .c_pmem_read(mem_read),
+    .c_pmem_write(mem_write),
+    .c_pmem_resp(mem_resp)
 );
 
-endmodule : cache
+endmodule : l2cache

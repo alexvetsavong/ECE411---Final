@@ -16,8 +16,6 @@ module cache_control (
 	output logic load_lru,
 	output logic set_lru,
 	output logic way_sel,
-	output logic write_en1,
-	output logic write_en2,
 	input logic pmem_resp,
 	output logic pmem_write,
 	output logic pmem_read,
@@ -42,8 +40,6 @@ function void set_defaults();
 	load_lru = 1'b0;
 	set_lru = 1'b0;
 	way_sel = way_reg;
-	write_en1 = 1'b0;
-	write_en2 = 1'b0;
 	pmem_read = 1'b0;
 	pmem_write = 1'b0;
 	write_sel = 2'b00;
