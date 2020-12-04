@@ -30,7 +30,7 @@ module cache_top
 );
 
 parameter L2_CACHE = 1;
-parameter L1_FOUR_WAY = 1;
+parameter L1_FOUR_WAY = 0;
 
 rv32i_word i_pmem_address, d_pmem_address, c_pmem_address;
 logic [255:0] i_pmem_rdata, d_pmem_rdata, c_pmem_rdata;

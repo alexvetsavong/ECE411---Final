@@ -143,21 +143,21 @@ always_comb begin
 	if(lru[0] === 1'b1) begin
 		if(lru[2] === 1'b1) begin
 			lru_way = 2'b11;
-			write_back = dirty_out[0];
+			write_back = dirty_out[3];
 		end
 		else begin
 			lru_way = 2'b10;
-			write_back = dirty_out[1];
+			write_back = dirty_out[2];
 		end
 	end
 	else begin
 		if(lru[1] === 1'b1) begin
 			lru_way = 2'b01;
-			write_back = dirty_out[2];
+			write_back = dirty_out[1];
 		end
 		else begin
 			lru_way = 2'b00;
-			write_back = dirty_out[3];
+			write_back = dirty_out[0];
 		end
 	end
 end
@@ -174,10 +174,10 @@ always_ff @(posedge clk) begin
 		valid_array2 <= 8'b0;
 		valid_array3 <= 8'b0;
 		valid_array4 <= 8'b0;
-		tag_array1 <= 192'b0;
-		tag_array2 <= 192'b0;
-		tag_array3 <= 192'b0;
-		tag_array4 <= 192'b0;
+		tag_array1 <= 192'bX;
+		tag_array2 <= 192'bX;
+		tag_array3 <= 192'bX;
+		tag_array4 <= 192'bX;
 	end
 	else begin
 		if(load_way_reg)
@@ -215,10 +215,10 @@ end
 
 /******************************* AND and CMP *********************************/
 
-assign comp1 = (tag == tag_out1) ? 1'b1 : 1'b0;
-assign comp2 = (tag == tag_out2) ? 1'b1 : 1'b0;
-assign comp3 = (tag == tag_out3) ? 1'b1 : 1'b0;
-assign comp4 = (tag == tag_out4) ? 1'b1 : 1'b0;
+assign comp1 = (tag === tag_out1) ? 1'b1 : 1'b0;
+assign comp2 = (tag === tag_out2) ? 1'b1 : 1'b0;
+assign comp3 = (tag === tag_out3) ? 1'b1 : 1'b0;
+assign comp4 = (tag === tag_out4) ? 1'b1 : 1'b0;
 assign cache_hit[0] = (comp1 && valid_out[0]) ? 1'b1 : 1'b0;
 assign cache_hit[1] = (comp2 && valid_out[1]) ? 1'b1 : 1'b0;
 assign cache_hit[2] = (comp3 && valid_out[2]) ? 1'b1 : 1'b0;

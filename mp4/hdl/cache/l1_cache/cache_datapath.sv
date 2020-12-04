@@ -113,8 +113,8 @@ always_ff @(posedge clk) begin
 	dirty_array2 <= 8'b0;
 	valid_array1 <= 8'b0;
 	valid_array2 <= 8'b0;
-	tag_array1 <= 192'b0;
-	tag_array2 <= 192'b0;
+	tag_array1 <= 192'bX;
+	tag_array2 <= 192'bX;
 	end
 	else begin
 		if(load_way_reg)
@@ -140,8 +140,8 @@ end
 
 /******************************* AND and CMP *********************************/
 
-assign comp1 = (tag == tag_out1) ? 1'b1 : 1'b0;
-assign comp2 = (tag == tag_out2) ? 1'b1 : 1'b0;
+assign comp1 = (tag === tag_out1) ? 1'b1 : 1'b0;
+assign comp2 = (tag === tag_out2) ? 1'b1 : 1'b0;
 assign cache_hit[0] = (comp1 && valid_out[0]) ? 1'b1 : 1'b0;
 assign cache_hit[1] = (comp2 && valid_out[1]) ? 1'b1 : 1'b0;
 assign write_back = lru ? dirty_out[1] : dirty_out[0];
