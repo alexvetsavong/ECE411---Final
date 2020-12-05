@@ -36,6 +36,7 @@ module datapath
 logic is_br;
 logic ms_flush, ms_flush1;
 logic halt;
+logic memory_stall;
 
 logic if_flush;
 logic id_flush;
@@ -487,6 +488,7 @@ always_comb begin
   read_regfile = 1'b1;
   data_stall = 1'b0;
   mem_gate = 1'b1;
+  memory_stall = 1'b0;
 
   if_flush = 1'b0;
   id_flush = 1'b0;
@@ -710,6 +712,7 @@ always_comb begin
       load_mem = 1'b0; 
       load_wb = 1'b0;
       read_regfile = 1'b0;
+      memory_stall = 1'b1;
     end
 
 end
