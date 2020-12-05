@@ -73,7 +73,7 @@ assign rvfi.mem_addr = dut.i_datapath.wb_d_mem_address;
 assign rvfi.mem_rmask = dut.i_datapath.wb_rmask;
 assign rvfi.mem_wmask = dut.i_datapath.wb_wmask;
 assign rvfi.mem_rdata = dut.i_datapath.wb_regfilemux_out;
-assign rvfi.mem_wdata = dut.i_datapath.wb_rs2_out;
+assign rvfi.mem_wdata = dut.i_datapath.wb_d_mem_wdata;
 
 /**************************** End RVFIMON signals ****************************/
 

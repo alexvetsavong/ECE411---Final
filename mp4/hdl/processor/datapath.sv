@@ -88,13 +88,14 @@ rv32i_ctrl_word mem_ctrl;
 
 logic trap;
 logic [3:0] rmask, wmask;
+rv32i_word d_mem_wdata_in;
 
 // MEM
 rv32i_word mem_regfilemux_out, mem_regfilemux_extra;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
-rv32i_word wb_pc_out, wb_rs1_out, wb_rs2_out, wb_imm, wb_alu_out, wb_i_mem_data;
+rv32i_word wb_pc_out, wb_rs1_out, wb_rs2_out, wb_imm, wb_alu_out, wb_i_mem_data, wb_d_mem_wdata;
 logic [4:0] wb_rs1, wb_rs2, wb_rd;
 logic [3:0] wb_rmask, wb_wmask;
 logic wb_trap, wb_is_br;
@@ -286,6 +287,7 @@ begin : trap_check
     trap = 0;
     rmask = '0;
     wmask = '0;
+    d_mem_wdata = d_mem_wdata_in;
 
     case (mem_ctrl.opcode)
         op_lui, op_auipc, op_imm, op_reg, op_jal, op_jalr:;
@@ -340,38 +342,71 @@ begin : trap_check
             case (store_funct3)
                 sw: begin
                     case (mem_alu_out[1:0])
-                        2'b00: wmask = 4'b1111;
+                        2'b00: begin
+                            wmask = 4'b1111;
+                            d_mem_wdata = d_mem_wdata_in;
+                        end
                         2'b01: begin
                             wmask = 4'b1110;
                             trap = 1'b1;
+                            d_mem_wdata = d_mem_wdata_in;
                         end
                         2'b10: begin
                             wmask = 4'b1100;
                             trap = 1'b1;
+                            d_mem_wdata = d_mem_wdata_in;
                         end
                         2'b11: begin
                             wmask = 4'b1000;
                             trap = 1'b1;
+                            d_mem_wdata = d_mem_wdata_in;
                         end
                     endcase
                 end
                 sh: begin
                     case (mem_alu_out[1:0])
-                        2'b00: wmask = 4'b0011;
-                        2'b01: wmask = 4'bXXXX;
-                        2'b10: wmask = 4'b1100;
-                        2'b11: wmask = 4'bXXXX;
+                        2'b00: begin
+                            wmask = 4'b0011;
+                            d_mem_wdata = d_mem_wdata_in;
+                        end
+                        2'b01: begin
+                            wmask = 4'bXXXX;
+                            d_mem_wdata = d_mem_wdata_in;
+                        end
+                        2'b10: begin
+                            wmask = 4'b1100;
+                            d_mem_wdata = d_mem_wdata_in << 16;
+                        end
+                        2'b11: begin
+                            wmask = 4'bXXXX;
+                            d_mem_wdata = d_mem_wdata_in;
+                        end
                     endcase
                 end
                 sb: begin
                     case (mem_alu_out[1:0])
-                        2'b00: wmask = 4'b0001;
-                        2'b01: wmask = 4'b0010;
-                        2'b10: wmask = 4'b0100;
-                        2'b11: wmask = 4'b1000;
+                        2'b00: begin
+                            wmask = 4'b0001;
+                            d_mem_wdata = d_mem_wdata_in;
+                        end
+                        2'b01: begin
+                            wmask = 4'b0010;
+                            d_mem_wdata = d_mem_wdata_in << 8;
+                        end
+                        2'b10: begin
+                            wmask = 4'b0100;
+                            d_mem_wdata = d_mem_wdata_in << 16;
+                        end
+                        2'b11: begin
+                            wmask = 4'b1000;
+                            d_mem_wdata = d_mem_wdata_in << 24;
+                        end
                     endcase
                 end
-                default: trap = 1;
+                default: begin
+                    trap = 1;
+                    d_mem_wdata = d_mem_wdata_in;
+                end
             endcase
         end
 
@@ -475,6 +510,11 @@ register #(.width(1)) mem_wb_trap_reg(
     .in   (trap), .out  (wb_trap)
 );
 
+register mem_wb_mem_wdata_reg(
+    .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
+    .in   (d_mem_wdata), .out (wb_d_mem_wdata)
+);
+
 assign is_br = ex_ctrl.jmp_op || (ex_ctrl.br_op & ex_br_en);
 
 /**************** MUXES ****************/
@@ -499,7 +539,7 @@ always_comb begin
   ex_rs1_fwd = ex_rs1_out;
   ex_rs2_fwd = ex_rs2_out;
 
-  d_mem_wdata = mem_rs2_out;
+  d_mem_wdata_in = mem_rs2_out;
 
 	// MUX before PCMUX in the datapath diagram
     unique case (is_br)
@@ -641,7 +681,7 @@ always_comb begin
 	end
 
     if (mem_ctrl.opcode == op_store && mem_rs2 == wb_rd && mem_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
-        d_mem_wdata = wb_regfilemux_out;
+        d_mem_wdata_in = wb_regfilemux_out;
     end
 
 	// REGFILEMUX
@@ -722,10 +762,10 @@ always_ff @(posedge clk) begin
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
-	// if(ms_flush || (ms_flush1 && (!i_mem_resp || data_stall)))
-	// 	ms_flush1 <= 1'b1;
-	// else
-	// 	ms_flush1 <= 1'b0;
+	if(ms_flush || (ms_flush1 && (!i_mem_resp || data_stall)))
+		ms_flush1 <= 1'b1;
+	else
+		ms_flush1 <= 1'b0;
 end
 
 endmodule : datapath
