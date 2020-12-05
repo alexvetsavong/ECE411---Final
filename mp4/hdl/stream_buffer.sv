@@ -18,7 +18,6 @@ module stream_buffer #(
     output logic [31:0] pmem_addr,
     output logic buffer_hit, pmem_read,
     output logic [data_width-1:0] data_out // send out to L1 cache
-    // output logic [tag_width-1:0] tag_out    // send to L1 cache (probably)
 );
 
 /* arrays to hold the data and tags */
@@ -33,8 +32,8 @@ logic [2:0] offset;
 assign tag_in = mem_addr[31:8];
 assign offset = mem_addr[7:5];
 
-int idx = 1;
-int tail = depth + 1;
+logic [23:0] idx = 24'b0;
+logic [23:0] tail = 24'(depth);
 
 enum int {
     idle,
@@ -44,6 +43,10 @@ enum int {
 
 /* state actions */
 always_comb begin
+    data_out = '0;
+    buffer_hit = 1'b0;
+    pmem_addr = {mem_addr[31:5], 5'b0};
+    pmem_read = 1'b0;
     case(state)
     idle: 
     begin
@@ -52,7 +55,7 @@ always_comb begin
             if (tag[i] == tag_in) begin
                 buffer_hit = 1'b1;  // let cpu know we have buffer hit
                 data_out = data[i]; // combinational read out
-                pmem_addr = {tag_in + tail, offset, 0}; // set the address for reading the refresh
+                pmem_addr = {24'(tag_in + tail), 3'(offset), 5'b0}; // set the address for reading the refresh
                 pmem_read = 1'b1;   // figure out the read signal
             end
         end
@@ -60,32 +63,20 @@ always_comb begin
 
     refresh: 
     begin
-        for (int i = 0; i < depth; i++) begin
-            if (tag[i] == tag_in) begin
-                if (pmem_resp) begin
-                    data[i] = data_in;
-                end
-            end
-        end
+        // we handle the read request in idle, so we just need to wait here
     end
 
     // we missed, so we need to make a bunch of requests
     prefetch: 
     begin
         pmem_read = 1'b1 & should_read;
-        pmem_addr = {tag_in + idx, offset, 0};
-        tag[idx] = tag_in + idx;
-        if (pmem_resp) 
-            data[idx] = data_in;
-        else 
-            data[idx] = 0;
+        pmem_addr = {24'(tag_in + idx + 1'b1), 3'(offset), 5'b0};
     end
 
     default: 
     begin     
-        data_out = data[0];
+        data_out = '0;
         buffer_hit = 1'b0;
-        idx = 0;
         pmem_addr = {mem_addr[31:5], 5'b0};
         pmem_read = 1'b0;
     end
@@ -129,29 +120,35 @@ always_ff @(posedge clk) begin
         data <= '0;
         tag <= '0;
         idx <= 0;
-        tail <= depth + 1;
-    end
-
-    else state <= next_state;
+        tail <= 24'(depth);
+    end else 
+        state <= next_state;
 
     if (state == prefetch) begin
         if (pmem_resp) begin
-            idx <= idx + 1;
+            tag[idx] <= tag_in + idx + 24'b1;
+            data[idx] <= data_in;
+            idx <= 24'(idx) + 24'b1;
             should_read <= 1;
         end
         else begin 
-            if (idx <= depth) 
+            if (idx < depth) 
                 idx <= idx; 
             else 
-                idx <= 1;
-            should_read <= 0; 
+                idx <= 0;
+                should_read <= 0; 
+            end
+            tail <= 24'(depth);
         end
-        tail <= depth + 1;
-    end
 
-    if (pmem_resp & (state == refresh)) begin
-        tail <= tail + 1;
+    for (int i = 0; i < depth; i++) begin
+        if (tag[i] == tag_in) begin
+            if (pmem_resp & (state == refresh)) begin
+                tag[i] <= 24'(tag_in + tail + 1);
+                data[i] <= data_in;
+                tail <= 24'(tail + 1);
+            end
+        end
     end
-
 end
 endmodule

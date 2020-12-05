@@ -31,7 +31,7 @@ module cache_top
 
 parameter L2_CACHE = 1;
 parameter L1_FOUR_WAY = 0;
-parameter PREFETCH = 0;
+parameter PREFETCH = 1;
 
 rv32i_word i_pmem_address, d_pmem_address, c_pmem_address;
 logic [255:0] i_pmem_rdata, d_pmem_rdata, c_pmem_rdata;
@@ -44,7 +44,7 @@ logic i_miss, d_miss, l2_miss, l2_serve;
 /* prefetcher instantiation */
 logic [31:0] prefetch_pmem_addr;
 logic [31:0] rq_pmem_addr;
-logic [255:0] buffer_out;
+logic [255:0] prefetchmux_out, buffer_out;
 logic prefetch_pmem_read;
 logic stream_hit;
 
@@ -270,8 +270,9 @@ if (PREFETCH == 1) begin
         .data_in(c_pmem_rdata),
 
         .pmem_addr(prefetch_pmem_addr),
-        .buffer_hit(stream_hit), .pmem_read(prefetch_pmem_read),
-        .data_out(buffer_out),    // send out to L1 cache
+        .buffer_hit(stream_hit), 
+        .pmem_read(prefetch_pmem_read),
+        .data_out(buffer_out)    // send out to L1 cache
     );
 
     always_comb begin
@@ -285,7 +286,6 @@ if (PREFETCH == 1) begin
         1'b1: prefetchmux_out = i_pmem_rdata; //arbiter out
         endcase
     end
-end else if (PREFETCH == 0) begin
 end
 endgenerate 
 
