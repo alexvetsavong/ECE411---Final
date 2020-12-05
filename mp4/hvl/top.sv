@@ -120,6 +120,11 @@ assign itf.data_rdata = dut.d_mem_rdata;
 assign itf.registers = dut.i_datapath.regfile.data;
 
 /*********************** Instantiate your design here ************************/
+int total_cycles = 0;
+int main_memory_accesses = 0;
+
+int data_stall_ctr = 0;
+int memory_stall_ctr = 0;
 
 int l1i_serve_ctr = 0;
 int l1i_miss_ctr = 0;
@@ -128,8 +133,12 @@ int l1d_miss_ctr = 0;
 int l2_serve_ctr = 0;
 int l2_miss_ctr = 0;
 
+
 initial $display("l2_cache field: %d", dut.i_cache_top.L2_CACHE);
 initial $display("l1_four_way field: %d", dut.i_cache_top.L1_FOUR_WAY);
+
+always @(posedge itf.clk iff !itf.rst) total_cycles <= total_cycles + 1;
+always @(posedge itf.clk iff dut.i_cache_top.c_pmem_resp) main_memory_accesses <= main_memory_accesses + 1;
 
 always @(posedge itf.clk iff dut.i_cache_top.i_mem_resp) l1i_serve_ctr <= l1i_serve_ctr + 1;
 always @(posedge itf.clk iff dut.i_cache_top.i_miss) l1i_miss_ctr <= l1i_miss_ctr + 1;
@@ -139,6 +148,9 @@ always @(posedge itf.clk iff dut.i_cache_top.d_miss) l1d_miss_ctr <= l1d_miss_ct
 
 always @(posedge itf.clk iff dut.i_cache_top.l2_serve) l2_serve_ctr <= l2_serve_ctr + 1;
 always @(posedge itf.clk iff dut.i_cache_top.l2_miss) l2_miss_ctr <= l2_miss_ctr + 1;
+
+always @(posedge itf.clk iff dut.i_datapath.data_stall) data_stall_ctr <= data_stall_ctr + 1;
+always @(posedge itf.clk iff dut.i_datapath.memory_stall) memory_stall_ctr <= memory_stall_ctr + 1;
 
 mp4 dut(
     .clk(itf.clk),
