@@ -120,6 +120,48 @@ cache d_cache (
     .pmem_write(d_pmem_write),
     .pmem_resp(d_pmem_resp)
 );
+
+// given_cache d_cache (
+//   .clk(clk),
+
+//   /* Physical memory signals */
+//   .pmem_resp(d_pmem_resp),
+//   .pmem_rdata(d_pmem_rdata),
+//   .pmem_address(d_pmem_address),
+//   .pmem_wdata(d_pmem_wdata),
+//   .pmem_read(d_pmem_read),
+//   .pmem_write(d_pmem_write),
+
+//   /* CPU memory signals */
+//   .mem_read(d_mem_read),
+//   .mem_write(d_mem_write),
+//   .mem_byte_enable_cpu(d_mem_byte_enable),
+//   .mem_address(d_mem_address),
+//   .mem_wdata_cpu(d_mem_wdata),
+//   .mem_resp(d_mem_resp),
+//   .mem_rdata_cpu(d_mem_rdata)
+// );
+
+// given_cache i_cache (
+//   .clk(clk),
+
+//   /* Physical memory signals */
+//   .pmem_resp(i_pmem_resp),
+//   .pmem_rdata(i_pmem_rdata),
+//   .pmem_address(i_pmem_address),
+//   .pmem_wdata(i_pmem_wdata),
+//   .pmem_read(i_pmem_read),
+//   .pmem_write(i_pmem_write),
+
+//   /* CPU memory signals */
+//   .mem_read(i_mem_read),
+//   .mem_write(i_mem_write),
+//   .mem_byte_enable_cpu(4'b1111),
+//   .mem_address(i_mem_address),
+//   .mem_wdata_cpu(i_mem_wdata),
+//   .mem_resp(i_mem_resp),
+//   .mem_rdata_cpu(i_mem_rdata)
+// );
 end
 
 

@@ -53,6 +53,7 @@ begin
     reset_val.funct3 = 3'b000;
 
     reset_val.commit = 1'b0;
+    reset_val.rd_valid = 1'b0;
 
     out = data;
 end
