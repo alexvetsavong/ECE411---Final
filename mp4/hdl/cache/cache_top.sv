@@ -256,11 +256,7 @@ end else if (PREFETCH == 1) begin
 	.write_o(pmem_write),
 	.resp_i(pmem_resp)
 );
-end
-endgenerate
 
-generate 
-if (PREFETCH == 1) begin
     stream_buffer i_prefetcher(
         .clk(clk), 
         .rst(rst),
@@ -268,6 +264,7 @@ if (PREFETCH == 1) begin
         .mem_read(i_mem_read & i_miss), 
         .pmem_resp(c_pmem_resp),
         .data_in(c_pmem_rdata),
+        .cache_resp(i_mem_resp),
 
         .pmem_addr(prefetch_pmem_addr),
         .buffer_hit(stream_hit), 
@@ -282,11 +279,11 @@ if (PREFETCH == 1) begin
         endcase
 
         unique case (stream_hit)
-        1'b0: prefetchmux_out = buffer_out; //prefetch out
-        1'b1: prefetchmux_out = i_pmem_rdata; //arbiter out
+        1'b0: prefetchmux_out = i_pmem_rdata; //arbiter out
+        1'b1: prefetchmux_out = buffer_out; //prefetch out
         endcase
     end
 end
-endgenerate 
+endgenerate
 
 endmodule 

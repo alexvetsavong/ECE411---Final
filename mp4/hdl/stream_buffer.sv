@@ -14,6 +14,7 @@ module stream_buffer #(
     input logic [31:0] mem_addr,
     input logic mem_read, pmem_resp,
     input logic [data_width-1:0] data_in,
+    input logic cache_resp,
 
     output logic [31:0] pmem_addr,
     output logic buffer_hit, pmem_read,
@@ -23,6 +24,7 @@ module stream_buffer #(
 /* arrays to hold the data and tags */
 logic [depth-1:0][data_width-1:0] data = '0;
 logic [depth-1:0][tag_width-1:0] tag = '0;
+logic [depth-1:0] valid = '0;
 
 logic should_read; // use as a way to only hold read for one cycle
 logic [tag_width-1:0] tag_in;
@@ -52,7 +54,7 @@ always_comb begin
     begin
         /* check all tags for a hit */
         for (int i = 0; i < depth; i++) begin
-            if (tag[i] == tag_in) begin
+            if ((tag[i] == tag_in) && (valid[i])) begin
                 buffer_hit = 1'b1;  // let cpu know we have buffer hit
                 data_out = data[i]; // combinational read out
                 pmem_addr = {24'(tag_in + tail), 3'(offset), 5'b0}; // set the address for reading the refresh
@@ -90,7 +92,7 @@ always_comb begin
     begin 
         if (buffer_hit & mem_read) 
             next_state = refresh; 
-        else if (mem_read) 
+        else if (mem_read & cache_resp) 
             next_state = prefetch;
         else next_state = idle;
     end
@@ -119,6 +121,7 @@ always_ff @(posedge clk) begin
         state <= idle;
         data <= '0;
         tag <= '0;
+        valid <= '0;
         idx <= 0;
         tail <= 24'(depth);
     end else 
@@ -126,6 +129,7 @@ always_ff @(posedge clk) begin
 
     if (state == prefetch) begin
         if (pmem_resp) begin
+            valid[idx] <= 1'b1;
             tag[idx] <= tag_in + idx + 24'b1;
             data[idx] <= data_in;
             idx <= 24'(idx) + 24'b1;
@@ -144,7 +148,8 @@ always_ff @(posedge clk) begin
     for (int i = 0; i < depth; i++) begin
         if (tag[i] == tag_in) begin
             if (pmem_resp & (state == refresh)) begin
-                tag[i] <= 24'(tag_in + tail + 1);
+                valid[i] <= 1'b1;
+                tag[i] <= 24'(tag_in + 24'(tail) + 24'b1);
                 data[i] <= data_in;
                 tail <= 24'(tail + 1);
             end
