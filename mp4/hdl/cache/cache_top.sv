@@ -244,7 +244,7 @@ end else if (PREFETCH == 1) begin
 
 	.line_i(c_pmem_wdata),
 	.line_o(c_pmem_rdata),
-	.address_i(rq_pmem_address),
+	.address_i(rq_pmem_addr),
 	.read_i(c_pmem_read || prefetch_pmem_read), // c_pmem_read needs to also consider prefetch now
 	.write_i(c_pmem_write),
 	.resp_o(c_pmem_resp),
