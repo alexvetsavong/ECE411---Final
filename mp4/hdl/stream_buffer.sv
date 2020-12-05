@@ -14,12 +14,11 @@ module stream_buffer #(
     input logic [31:0] mem_addr,
     input logic mem_read, pmem_resp,
     input logic [data_width-1:0] data_in,
-    input logic [tag_width-1:0] tag_in,
 
     output logic [31:0] pmem_addr,
     output logic buffer_hit, pmem_read,
-    output logic [data_width-1:0] data_out, // send out to L1 cache
-    output logic [tag_width-1:0] tag_out    // send to L1 cache (probably)
+    output logic [data_width-1:0] data_out // send out to L1 cache
+    // output logic [tag_width-1:0] tag_out    // send to L1 cache (probably)
 );
 
 /* arrays to hold the data and tags */
@@ -27,11 +26,11 @@ logic [depth-1:0][data_width-1:0] data = '0;
 logic [depth-1:0][tag_width-1:0] tag = '0;
 
 logic should_read; // use as a way to only hold read for one cycle
-logic [23:0] tag;
+logic [tag_width-1:0] tag_in;
 logic [2:0] offset;
 
 /* assign the mem addr for the stream buffer for prefetching */
-assign tag = mem_addr[31:8];
+assign tag_in = mem_addr[31:8];
 assign offset = mem_addr[7:5];
 
 int idx = 1;
@@ -53,7 +52,7 @@ always_comb begin
             if (tag[i] == tag_in) begin
                 buffer_hit = 1'b1;  // let cpu know we have buffer hit
                 data_out = data[i]; // combinational read out
-                pmem_addr = {tag + tail, offset, 0}; // set the address for reading the refresh
+                pmem_addr = {tag_in + tail, offset, 0}; // set the address for reading the refresh
                 pmem_read = 1'b1;   // figure out the read signal
             end
         end
@@ -74,8 +73,8 @@ always_comb begin
     prefetch: 
     begin
         pmem_read = 1'b1 & should_read;
-        pmem_addr = {tag + idx, offset, 0};
-        tag[idx] = tag + idx;
+        pmem_addr = {tag_in + idx, offset, 0};
+        tag[idx] = tag_in + idx;
         if (pmem_resp) 
             data[idx] = data_in;
         else 
