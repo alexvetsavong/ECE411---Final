@@ -4,9 +4,11 @@ import mult_types::*;
 module add_shift_tb;
 
 logic clk, reset_n, start, rdy, done;
-logic [31:0] multiplicand, multiplier;
-logic [63:0] product;
+logic [width_p-1:0] multiplicand, multiplier;
+logic [2*width_p-1:0] product;
+logic [2*width_p-1:0] p;
 logic correct = 1'b1;
+logic [2:0] mul_funct3 = 3'b011;  // unsigned 010, signed 000,001, signed*unsigned 011
 
 // generate clock
 always begin
@@ -21,6 +23,7 @@ add_shift_multiplier dut (
     .multiplicand_i ( multiplicand ),
     .multiplier_i   ( multiplier   ),
     .start_i        ( start        ),
+	 .mul_funct3     ( mul_funct3   ),
     .ready_o        ( rdy          ),
     .product_o      ( product      ),
     .done_o         ( done         )
@@ -41,10 +44,10 @@ initial begin
     #1;
 	 // after the first reset, rdy should be 1
 	
-    for (int i = 2; i <= 32'hFF; ++i) begin
-			for (int j = 2; j <= 32'hFF; ++j) begin
-				multiplicand <= i[31:0];
-				multiplier <= j[31:0];
+    for (int i = -15; i <= 15; ++i) begin
+			for (int j = 0; j <= 15; ++j) begin
+				multiplicand <= i[width_p-1:0];
+				multiplier <= j[width_p-1:0];
 				// assert start_i from READY state
 				start <= 1'b1;
 				#10;
@@ -53,8 +56,9 @@ initial begin
 				while (done == 1'b0) begin
 				  #10;
 				end
+				p = $signed(multiplicand) * $signed(multiplier);
 				// check output
-				assert (product == multiplicand * multiplier)
+				assert (product == p)
 				    else begin
 						correct = 1'b0;
 				    end
