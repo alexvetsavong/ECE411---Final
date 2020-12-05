@@ -1,4 +1,4 @@
-module cache (
+module given_cache (
   input clk,
 
   /* Physical memory signals */
@@ -32,10 +32,10 @@ logic [255:0] mem_wdata;
 logic [255:0] mem_rdata;
 logic [31:0] mem_byte_enable;
 
-cache_control control(.*);
-cache_datapath datapath(.*);
+given_cache_control control(.*);
+given_cache_datapath datapath(.*);
 
-line_adapter bus (
+given_line_adapter bus (
     .mem_wdata_line(mem_wdata),
     .mem_rdata_line(mem_rdata),
     .mem_wdata(mem_wdata_cpu),
@@ -45,4 +45,4 @@ line_adapter bus (
     .address(mem_address)
 );
 
-endmodule : cache
+endmodule : given_cache

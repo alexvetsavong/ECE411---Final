@@ -1,5 +1,5 @@
 
-module array #(parameter width = 1)
+module given_array #(parameter width = 1)
 (
   input clk,
   input logic load,
@@ -32,4 +32,4 @@ begin
         data[windex] <= datain;
 end
 
-endmodule : array
+endmodule : given_array

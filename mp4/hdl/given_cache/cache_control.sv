@@ -1,4 +1,4 @@
-module cache_control (
+module given_cache_control (
   input clk,
 
   /* CPU memory data signals */
@@ -105,4 +105,4 @@ always_ff @(posedge clk) begin: next_state_assignment
 	 state <= next_state;
 end
 
-endmodule : cache_control
+endmodule : given_cache_control

@@ -1,4 +1,4 @@
-module cache_datapath (
+module given_cache_datapath (
   input clk,
 
   /* CPU memory data signals */
@@ -53,9 +53,9 @@ always_comb begin
 	endcase
 end
 
-data_array DM_cache (clk, mask, index, index, line_in, line_out);
-array #(24) tag (clk, tag_load, index, index, address_tag, tag_out);
-array #(1) valid (clk, valid_load, index, index, 1'b1, valid_out);
-array #(1) dirty (clk, dirty_load, index, index, dirty_in, dirty_out);
+given_data_array DM_cache (clk, mask, index, index, line_in, line_out);
+given_array #(24) tag (clk, tag_load, index, index, address_tag, tag_out);
+given_array #(1) valid (clk, valid_load, index, index, 1'b1, valid_out);
+given_array #(1) dirty (clk, dirty_load, index, index, dirty_in, dirty_out);
 
-endmodule : cache_datapath
+endmodule : given_cache_datapath

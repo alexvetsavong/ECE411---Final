@@ -36,6 +36,7 @@ module datapath
 logic is_br;
 logic ms_flush, ms_flush1;
 logic halt;
+logic memory_stall;
 
 logic if_flush;
 logic id_flush;
@@ -106,7 +107,6 @@ rv32i_word wb_d_mem_address;
 // Datapath <-> Cache
 assign i_mem_address = if_pc_out;
 assign i_mem_read = 1'b1;
-assign d_mem_wdata = mem_rs2_out;
 assign d_mem_address = {mem_alu_out[31:2], 2'b0};
 assign d_mem_read = mem_ctrl.mem_read && mem_gate;
 assign d_mem_write = mem_ctrl.mem_write && mem_gate;
@@ -488,6 +488,7 @@ always_comb begin
   read_regfile = 1'b1;
   data_stall = 1'b0;
   mem_gate = 1'b1;
+  memory_stall = 1'b0;
 
   if_flush = 1'b0;
   id_flush = 1'b0;
@@ -497,6 +498,8 @@ always_comb begin
 
   ex_rs1_fwd = ex_rs1_out;
   ex_rs2_fwd = ex_rs2_out;
+
+  d_mem_wdata = mem_rs2_out;
 
 	// MUX before PCMUX in the datapath diagram
     unique case (is_br)
@@ -537,7 +540,7 @@ always_comb begin
 	
 	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
 	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-        if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
+        if (ex_rs1 == mem_rd && ex_rs1 != 5'b0 && mem_ctrl.rd_valid) begin		// 1 stage away
             if (mem_ctrl.opcode == op_load) begin
 				ex_alumux3_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
@@ -548,7 +551,7 @@ always_comb begin
                 ex_rs1_fwd = mem_regfilemux_out;
             end
 		end
-		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
+		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0 && wb_ctrl.rd_valid) begin	// 2 stages away
           ex_alumux3_out = wb_regfilemux_out;
           ex_rs1_fwd = wb_regfilemux_out;
 		 end
@@ -562,7 +565,7 @@ always_comb begin
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
-	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin         
+	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0 && mem_ctrl.rd_valid) begin         
 		    if (mem_ctrl.opcode == op_load) begin
 				ex_alumux4_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
@@ -573,7 +576,7 @@ always_comb begin
 		    	ex_rs2_fwd = mem_regfilemux_out;
 		    end
 		 end
-		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
+		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
 		    ex_alumux4_out = wb_regfilemux_out;
 		    ex_rs2_fwd = wb_regfilemux_out;
 		 end
@@ -593,7 +596,7 @@ always_comb begin
 	endcase
 	
    // CMPMUX1 - cmpmux1_out replaces rs1_out as one input to CMP.
-	 if (ex_rs1 == mem_rd && ex_rs1 != 5'b0) begin		// 1 stage away
+	 if (ex_rs1 == mem_rd && ex_rs1 != 5'b0 && mem_ctrl.rd_valid) begin		// 1 stage away
 		  if (mem_ctrl.opcode == op_load) begin
 		  	    ex_cmpmux1_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
@@ -604,7 +607,7 @@ always_comb begin
 				ex_rs1_fwd = mem_regfilemux_out;
 		end
 	 end
-	 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0) begin	// 2 stages away
+	 else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0 && wb_ctrl.rd_valid) begin	// 2 stages away
 		ex_cmpmux1_out = wb_regfilemux_out;
 		ex_rs1_fwd = wb_regfilemux_out;
 	 end
@@ -614,7 +617,7 @@ always_comb begin
 
 	// CMPMUX2 - Inserted between original CMPMUX and CMP.
 	if (ex_ctrl.cmpmux_sel == cmpmux::rs2_out) begin
-	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0) begin
+	    if (ex_rs2 == mem_rd && ex_rs2 != 5'b0 && mem_ctrl.rd_valid) begin
 		    if (mem_ctrl.opcode == op_load) begin
 		     	ex_cmpmux2_out = mem_regfilemux_extra;
 				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
@@ -625,7 +628,7 @@ always_comb begin
 		    	ex_rs2_fwd = mem_regfilemux_out;
 		    end
 		end
-		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0) begin
+		 else if (ex_rs2 == wb_rd && ex_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
             ex_cmpmux2_out = wb_regfilemux_out;
             ex_rs2_fwd = wb_regfilemux_out;
 		 end
@@ -636,6 +639,10 @@ always_comb begin
 	else begin
 	    ex_cmpmux2_out = ex_cmpmux_out;
 	end
+
+    if (mem_ctrl.opcode == op_store && mem_rs2 == wb_rd && mem_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
+        d_mem_wdata = wb_regfilemux_out;
+    end
 
 	// REGFILEMUX
 	unique case (mem_ctrl.regfilemux_sel)
@@ -705,6 +712,7 @@ always_comb begin
       load_mem = 1'b0; 
       load_wb = 1'b0;
       read_regfile = 1'b0;
+      memory_stall = 1'b1;
     end
 
 end
@@ -714,10 +722,10 @@ always_ff @(posedge clk) begin
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
-	if(ms_flush || (ms_flush1 && (!i_mem_resp || data_stall)))
-		ms_flush1 <= 1'b1;
-	else
-		ms_flush1 <= 1'b0;
+	// if(ms_flush || (ms_flush1 && (!i_mem_resp || data_stall)))
+	// 	ms_flush1 <= 1'b1;
+	// else
+	// 	ms_flush1 <= 1'b0;
 end
 
 endmodule : datapath

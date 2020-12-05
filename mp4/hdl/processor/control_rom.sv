@@ -41,6 +41,8 @@ function void set_defaults();
     ctrl.opcode = opcode;
     ctrl.funct3 = funct3;
 
+    ctrl.rd_valid = 1'b1;
+
     ctrl.commit = 1'b0;
 endfunction
 
@@ -98,6 +100,7 @@ always_comb begin
             ctrl.alumux1_sel = alumux::pc_out;
             ctrl.alumux2_sel = alumux::imm;
             ctrl.commit = 1'b1;
+            ctrl.rd_valid = 1'b0;
         end
         op_load: 
         begin
@@ -134,6 +137,7 @@ always_comb begin
 
             ctrl.load_regfile = 1'b0;
             ctrl.commit = 1'b1;
+            ctrl.rd_valid = 1'b0;
         end
         op_imm: 
         begin
