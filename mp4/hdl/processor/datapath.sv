@@ -45,7 +45,6 @@ logic mem_flush;
 logic wb_flush;
 
 logic read_regfile;
-logic mem_gate;
 
 // load signals for pipeline registers
 logic load_if, load_id, load_ex;
@@ -106,11 +105,20 @@ rv32i_ctrl_word wb_ctrl;
 rv32i_word wb_d_mem_address;
 
 // Datapath <-> Cache
+logic issue_i_mem_read;
+logic issue_d_mem_rw;
+logic issue_i_mem_read_next;
+logic issue_d_mem_rw_next;
+logic seen_i_resp; 
+logic seen_i_resp_next;
+logic seen_d_resp; 
+logic seen_d_resp_next;
+
 assign i_mem_address = if_pc_out;
-assign i_mem_read = 1'b1;
+assign i_mem_read = issue_i_mem_read;
 assign d_mem_address = {mem_alu_out[31:2], 2'b0};
-assign d_mem_read = mem_ctrl.mem_read && mem_gate;
-assign d_mem_write = mem_ctrl.mem_write && mem_gate;
+assign d_mem_read = mem_ctrl.mem_read && issue_d_mem_rw;
+assign d_mem_write = mem_ctrl.mem_write && issue_d_mem_rw;
 assign d_mem_byte_enable = wmask;
 
 // Casting functions
@@ -123,11 +131,11 @@ assign load_funct3 = load_funct3_t'(mem_ctrl.funct3);
 assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 
 logic data_op;
-assign flush_gating = ((!d_mem_read && !d_mem_write) || d_mem_resp);
+assign flush_gating = ((!mem_ctrl.mem_read && !mem_ctrl.mem_write) || d_mem_resp);
 
 // misspeculation flush signal
 assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
-assign ms_flush = ((i_mem_resp)) & (!(data_stall)) & (is_br || rst) & ((!d_mem_read && !d_mem_write) || d_mem_resp); 
+assign ms_flush = ((i_mem_resp || seen_i_resp)) & (!(data_stall)) & (is_br || rst) & (((!mem_ctrl.mem_read && !mem_ctrl.mem_write) || d_mem_resp || seen_i_resp)); 
 
 /**************** Modules ****************/
 // IF Modules
@@ -530,7 +538,6 @@ always_comb begin
   load_pc = 1'b1;
   read_regfile = 1'b1;
   data_stall = 1'b0;
-  mem_gate = 1'b1;
   memory_stall = 1'b0;
 
   if_flush = 1'b0;
@@ -756,7 +763,7 @@ always_comb begin
       read_regfile = 1'b0;
     end
 
-    if(!i_mem_resp || (!d_mem_resp && (d_mem_read || d_mem_write))) begin
+    if((!i_mem_resp && !seen_i_resp) || (!seen_d_resp && !d_mem_resp && (mem_ctrl.mem_read || mem_ctrl.mem_write))) begin
       load_pc = 1'b0;
       load_if = 1'b0;
       load_id = 1'b0; 
@@ -766,11 +773,26 @@ always_comb begin
       read_regfile = 1'b0;
       memory_stall = 1'b1;
     end
-
+	if(load_if || rst)
+		issue_i_mem_read_next = 1'b1;
+	else
+		issue_i_mem_read_next = 1'b0;
+	if(load_mem || rst)
+		issue_d_mem_rw_next = 1'b1;
+	else
+		issue_d_mem_rw_next = 1'b0;
+	if(i_mem_resp || seen_i_resp)
+		seen_i_resp_next = 1'b1;
+	else
+		seen_i_resp_next = 1'b0;
+	if(d_mem_resp || seen_d_resp)
+		seen_d_resp_next = 1'b1;
+	else
+		seen_d_resp_next = 1'b0;
 end
 
 always_ff @(posedge clk) begin
-	if(data_stall && (d_mem_resp && (d_mem_read || d_mem_write)))
+	if(data_stall && (d_mem_resp && (mem_ctrl.mem_read || mem_ctrl.mem_write)))
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
@@ -778,6 +800,10 @@ always_ff @(posedge clk) begin
 		ms_flush1 <= 1'b1;
 	else
 		ms_flush1 <= 1'b0;
+	issue_i_mem_read <= issue_i_mem_read_next;
+	issue_d_mem_rw <= issue_d_mem_rw_next;
+	seen_i_resp <= seen_i_resp_next;
+	seen_d_resp <= seen_d_resp_next;
 end
 
 endmodule : datapath

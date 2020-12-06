@@ -27,11 +27,14 @@ module cache_control (
 	output logic [1:0] read_data_array
 );
 
-
+logic read_reg;
+logic write_reg;
+logic read_reg_next;
+logic write_reg_next;
 
 enum int unsigned {
     /* List of states */
-    idle, writeback, allocate
+    idle, writeback, allocate, serve
 } state, next_states;
 
 function void set_defaults();
@@ -98,6 +101,18 @@ function void set_allocate();
 	load_tag[way_reg] = 1'b1;
 endfunction
 
+function void set_serve();
+    if (write_reg) begin
+        load_dirty[way_reg] = 1'b1;
+        set_dirty = 1'b1;
+        write_sel = 2'b10;
+    end
+    read_data_array[way_reg] = read_reg ? 1'b1 : 1'b0;
+    load_lru = 1'b1;
+    set_lru = ~way_reg;
+    mem_resp = 1'b1;
+endfunction
+
 always_comb
 begin : state_actions
     /* Default output assignments */
@@ -112,6 +127,9 @@ begin : state_actions
     		allocate: begin
 			set_allocate();
 			end
+            serve: begin
+            set_serve();
+            end
     	endcase
 end
 
@@ -119,15 +137,23 @@ always_comb
 begin : next_state_logic
     /* Next state information and conditions (if any)
      * for transitioning between states */
+    read_reg_next = read_reg;
+    write_reg_next = write_reg;
     unique case (state)
     	idle: begin
     		if(mem_read || mem_write) begin
     			if (cache_hit != 2'b0)
     				next_states = idle;
-    			else if (write_back != 1'b0)
+    			else if (write_back != 1'b0) begin
     				next_states = writeback;
-    			else
+                    read_reg_next = mem_read;
+                    write_reg_next = mem_write;
+                end
+    			else begin
     				next_states = allocate;
+                    read_reg_next = mem_read;
+                    write_reg_next = mem_write;
+                end
     		end else
 				next_states = idle;
     	end
@@ -140,9 +166,15 @@ begin : next_state_logic
     	allocate: begin
     		if(pmem_resp == 0)
     			next_states = allocate;
-    		else
-    			next_states = idle;
+    		else begin
+    			next_states = serve;
+            end
     	end
+        serve: begin
+            next_states = serve;
+            read_reg_next = 1'b0;
+            write_reg_next = 1'b0;
+        end
         default: next_states = idle;
     endcase
 end
@@ -152,9 +184,13 @@ begin: next_state_assignment
     /* Assignment of next state on clock edge */
     if(!rst) begin
         state <= next_states;
+        read_reg <= read_reg_next;
+        write_reg <= write_reg_next;
     end
     else begin
         state <= idle;
+        read_reg <= 1'b0;
+        write_reg <= 1'b0;
     end
 end
 
