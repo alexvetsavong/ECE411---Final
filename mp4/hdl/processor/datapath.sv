@@ -224,25 +224,41 @@ cmp CMP(
 	 .out (ex_br_en)
 );
 
+logic ready_o;
+
+logic mult_start;
+logic div_start;
+logic mult_ip;
+logic div_ip;
+
+assign mult_start = ex_ctrl.multiplier_start && !mult_ip && !data_stall;
+
+assign div_start = ex_ctrl.divider_start && !div_ip && !data_stall;
+
 add_shift_multiplier multiplier(
     .clk_i          ( clk          ),
     .reset_n_i      ( ~rst      ),	//change later
     .multiplicand_i ( ex_alumux3_out ),
     .multiplier_i   ( ex_alumux4_out ),
-    .start_i        ( ex_ctrl.multiplier_start),
-    .ready_o        (           ),
-    .product_o      ( ex_multiplier_out),
+    .start_i        ( mult_start ),
+    .mul_funct3     ( ex_ctrl.funct3 ),
+    .ready_o        ( ready_o ),
+    .product_o      ( ex_multiplier_out ),
     .done_o         ( ex_multiplier_done )
 );
+
+logic is_signed;
+assign is_signed = ~ex_ctrl.funct3[0];
 
 divider divider (
     .clk_i        ( clk          ),
     .reset_i      ( rst      ),	//change later
     .dividend_i   ( ex_alumux3_out ),
     .divisor_i    ( ex_alumux4_out ),
-    .start_i      ( ex_ctrl.multiplier_start ),
+    .start_i      ( div_start ),
+    .is_signed_i  ( is_signed ),
     .quotient_o   ( ex_divider_out[31:0] ),
-	 .remainder_o  ( ex_divider_out[63:32]),
+	.remainder_o  ( ex_divider_out[63:32]),
     .done_o       ( ex_divider_done )
 );
 
@@ -728,7 +744,7 @@ always_comb begin
     endcase
 
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
-    if (data_stall) begin
+    if (data_stall || mult_ip || div_ip) begin
       load_pc = 1'b0;
       load_if = 1'b0;
       load_id = 1'b0;
@@ -759,6 +775,20 @@ always_ff @(posedge clk) begin
 		ms_flush1 <= 1'b1;
 	else
 		ms_flush1 <= 1'b0;
+
+    if(mult_start)
+        mult_ip <= 1'b1;
+    else if(mult_ip && !ex_multiplier_done)
+        mult_ip <= 1'b1;
+    else
+        mult_ip <= 1'b0;
+
+    if(div_start)
+        div_ip <= 1'b1;
+    else if(div_ip && !ex_divider_done)
+        div_ip <= 1'b1;
+    else
+        div_ip <= 1'b0;
 end
 
 endmodule : datapath
