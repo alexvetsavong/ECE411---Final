@@ -62,17 +62,26 @@ assign rvfi.rs1_rdata = dut.i_datapath.wb_rs1_out;
 assign rvfi.rs2_rdata = (dut.i_datapath.wb_rs1 == dut.i_datapath.wb_rs2) ? dut.i_datapath.wb_rs1_out : dut.i_datapath.wb_rs2_out;
 assign rvfi.load_regfile = dut.i_datapath.wb_ctrl.load_regfile;
 assign rvfi.rd_addr = dut.i_datapath.wb_rd;
+// logic signed [31:0] signed_regmux_out;
+// always_comb begin
+//     case(dut.i_datapath.wb_d_mem_address[1:0])
+//         2'b00: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 0;
+//         2'b01: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 8;
+//         2'b10: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 16;
+//         2'b11: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 24;
+//     endcase
+// end
+//assign rvfi.rd_wdata = (dut.i_datapath.wb_rd != 5'b0) ? (dut.i_datapath.wb_ctrl.opcode == 7'b0000011 ? (signed_regmux_out) : dut.i_datapath.wb_regfilemux_out) : 32'b0;
 assign rvfi.rd_wdata = (dut.i_datapath.wb_rd != 5'b0) ? dut.i_datapath.wb_regfilemux_out : 32'b0;
-
 // PC:
 assign rvfi.pc_rdata = dut.i_datapath.wb_pc_out;
-assign rvfi.pc_wdata = dut.i_datapath.wb_is_br ? dut.i_datapath.wb_alu_out : dut.i_datapath.mem_pc_out;
+assign rvfi.pc_wdata = dut.i_datapath.wb_is_br ? dut.i_datapath.wb_alu_out : ((dut.i_datapath.mem_pc_out == 32'b0) ? dut.i_datapath.id_pc_out : dut.i_datapath.mem_pc_out);
 
 // Memory:
 assign rvfi.mem_addr = dut.i_datapath.wb_d_mem_address;
 assign rvfi.mem_rmask = dut.i_datapath.wb_rmask;
 assign rvfi.mem_wmask = dut.i_datapath.wb_wmask;
-assign rvfi.mem_rdata = dut.i_datapath.wb_regfilemux_out;
+assign rvfi.mem_rdata = dut.i_datapath.wb_d_mem_data;
 assign rvfi.mem_wdata = dut.i_datapath.wb_d_mem_wdata;
 
 /**************************** End RVFIMON signals ****************************/
@@ -133,6 +142,10 @@ int l1d_miss_ctr = 0;
 int l2_serve_ctr = 0;
 int l2_miss_ctr = 0;
 
+logic [31:0] a = 32'h80000000;
+logic [31:0] g = $signed(a) >>> 5;
+
+initial $display("g: %x", g);
 
 initial $display("l2_cache field: %d", dut.i_cache_top.L2_CACHE);
 initial $display("l1_four_way field: %d", dut.i_cache_top.L1_FOUR_WAY);

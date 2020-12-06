@@ -122,9 +122,12 @@ assign branch_funct3 = branch_funct3_t'(mem_ctrl.funct3);
 assign load_funct3 = load_funct3_t'(mem_ctrl.funct3);
 assign store_funct3 = store_funct3_t'(mem_ctrl.funct3);
 
+logic data_op;
+assign flush_gating = ((!d_mem_read && !d_mem_write) || d_mem_resp);
+
 // misspeculation flush signal
 assign halt = is_br & (pcmux2_out + 8 == if_pc_out) & (if_pc_out == id_pc_out + 4) & (if_pc_out == ex_pc_out + 8);
-assign ms_flush = ((i_mem_resp)) & (!(data_stall)) & (is_br || rst); 
+assign ms_flush = ((i_mem_resp)) & (!(data_stall)) & (is_br || rst) & ((!d_mem_read && !d_mem_write) || d_mem_resp); 
 
 /**************** Modules ****************/
 // IF Modules
@@ -271,7 +274,7 @@ register ex_mem_imm_reg(
     .in   (ex_imm), .out  (mem_imm)
 );
 
-ctrl_reg ex_mem_is_br_reg(
+register #(.width(1)) ex_mem_is_br_reg(
     .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
     .in   (is_br), .out  (mem_is_br)
 );
@@ -470,7 +473,7 @@ register mem_wb_imm_reg(
     .in   (mem_imm), .out  (wb_imm)		// Goes to regfilemux
 );
 
-ctrl_reg mem_wb_is_br_reg(
+register #(.width(1)) mem_wb_is_br_reg(
     .clk  (clk), .rst (rst || mem_flush), .load (load_mem),
     .in   (mem_is_br), .out  (wb_is_br)
 );
