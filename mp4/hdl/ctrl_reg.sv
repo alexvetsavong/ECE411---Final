@@ -54,7 +54,9 @@ begin
 
     reset_val.commit = 1'b0;
     reset_val.multiplier_start = 1'b0;
-	 reset_val.divider_start = 1'b0;
+    reset_val.divider_start = 1'b0;
+    reset_val.rd_valid = 1'b0;
+
     out = data;
 end
 

@@ -30,7 +30,7 @@ assign b_imm = {{20{data[31]}}, data[7], data[30:25], data[11:8], 1'b0};
 assign u_imm = {data[31:12], 12'h000};
 assign j_imm = {{12{data[31]}}, data[19:12], data[20], data[30:21], 1'b0};
 assign rs1 = data[19:15];
-assign rs2 = data[24:20];
+assign rs2 = (opcode != op_imm) ? data[24:20] : data[19:15];
 assign rd = data[11:7];
 
 //why "=" instead of "<="

@@ -1,4 +1,4 @@
-module data_array (
+module given_data_array (
   input clk,
   input logic [31:0] write_en,
   input logic [2:0] rindex,
@@ -21,4 +21,4 @@ always_ff @(posedge clk) begin
     end
 end
 
-endmodule : data_array
+endmodule : given_data_array
