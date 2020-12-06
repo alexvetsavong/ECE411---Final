@@ -17,7 +17,7 @@ module stream_buffer #(
     input logic cache_resp,
 
     output logic [31:0] pmem_addr,
-    output logic buffer_hit, pmem_read,
+    output logic buffer_resp, pmem_read,
     output logic [data_width-1:0] data_out // send out to L1 cache
 );
 
@@ -46,7 +46,7 @@ enum int {
 /* state actions */
 always_comb begin
     data_out = '0;
-    buffer_hit = 1'b0;
+    buffer_resp = 1'b0;
     pmem_addr = {mem_addr[31:5], 5'b0};
     pmem_read = 1'b0;
     case(state)
@@ -54,18 +54,16 @@ always_comb begin
     begin
         /* check all tags for a hit */
         for (int i = 0; i < depth; i++) begin
-            if ((tag[i] == tag_in) && (valid[i])) begin
-                buffer_hit = 1'b1;  // let cpu know we have buffer hit
-                data_out = data[i]; // combinational read out
-                pmem_addr = {24'(tag_in + tail), 3'(offset), 5'b0}; // set the address for reading the refresh
-                pmem_read = 1'b1;   // figure out the read signal
+            if ((tag[i] == tag_in) && (valid[i]) && mem_read) begin
+                buffer_resp = 1'b1;  // let cpu know we have buffer hit
+                data_out = data[i];  // combinational read out
             end
         end
     end
 
     refresh: 
     begin
-        // we handle the read request in idle, so we just need to wait here
+    // we need to refresh the data we just used with newer data
     end
 
     // we missed, so we need to make a bunch of requests
@@ -78,7 +76,7 @@ always_comb begin
     default: 
     begin     
         data_out = '0;
-        buffer_hit = 1'b0;
+        buffer_resp = 1'b0;
         pmem_addr = {mem_addr[31:5], 5'b0};
         pmem_read = 1'b0;
     end
@@ -90,9 +88,9 @@ always_comb begin
     case(state)
     idle: 
     begin 
-        if (buffer_hit & mem_read) 
+        if (buffer_resp & mem_read & pmem_resp) 
             next_state = refresh; 
-        else if (mem_read & cache_resp) 
+        else if (mem_read & pmem_resp) 
             next_state = prefetch;
         else next_state = idle;
     end
@@ -141,9 +139,9 @@ always_ff @(posedge clk) begin
             else 
                 idx <= 0;
                 should_read <= 0; 
-            end
-            tail <= 24'(depth);
         end
+        tail <= 24'(depth);
+    end
 
     for (int i = 0; i < depth; i++) begin
         if (tag[i] == tag_in) begin

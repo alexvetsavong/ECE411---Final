@@ -46,7 +46,7 @@ logic [31:0] prefetch_pmem_addr;
 logic [31:0] rq_pmem_addr;
 logic [255:0] prefetchmux_out, buffer_out;
 logic prefetch_pmem_read;
-logic stream_hit;
+logic stream_resp;
 
 assign i_miss = (i_pmem_read || i_pmem_write) && i_pmem_resp;
 assign d_miss = (d_pmem_read || d_pmem_write) && d_pmem_resp;
@@ -110,7 +110,7 @@ cache i_cache (
     .pmem_wdata(i_pmem_wdata),
     .pmem_read(i_pmem_read),
     .pmem_write(i_pmem_write),
-    .pmem_resp(i_pmem_resp)
+    .pmem_resp(i_pmem_resp || stream_resp)
 );
 end else begin
 cache i_cache (
@@ -287,7 +287,7 @@ end else if (PREFETCH == 1) begin
 	.line_i(c_pmem_wdata),
 	.line_o(c_pmem_rdata),
 	.address_i(rq_pmem_addr),
-	.read_i(c_pmem_read || prefetch_pmem_read), // c_pmem_read needs to also consider prefetch now
+	.read_i(c_pmem_read || (~c_pmem_read & prefetch_pmem_read)), // c_pmem_read needs to also consider prefetch now
 	.write_i(c_pmem_write),
 	.resp_o(c_pmem_resp),
 
@@ -299,17 +299,17 @@ end else if (PREFETCH == 1) begin
 	.resp_i(pmem_resp)
 );
 
-    stream_buffer i_prefetcher(
+    stream_buffer #(.depth(4)) i_prefetcher(
         .clk(clk), 
         .rst(rst),
         .mem_addr(i_mem_address),
-        .mem_read(i_mem_read & i_miss), 
+        .mem_read(i_miss), 
         .pmem_resp(c_pmem_resp),
         .data_in(c_pmem_rdata),
-        .cache_resp(i_mem_resp),
+        .cache_resp(i_pmem_resp), // check for L2 hit/serve
 
         .pmem_addr(prefetch_pmem_addr),
-        .buffer_hit(stream_hit), 
+        .buffer_resp(stream_resp), 
         .pmem_read(prefetch_pmem_read),
         .data_out(buffer_out)    // send out to L1 cache
     );
@@ -320,7 +320,7 @@ end else if (PREFETCH == 1) begin
         1'b1: rq_pmem_addr = prefetch_pmem_addr; 
         endcase
 
-        unique case (stream_hit)
+        unique case (stream_resp)
         1'b0: prefetchmux_out = i_pmem_rdata; //arbiter out
         1'b1: prefetchmux_out = buffer_out; //prefetch out
         endcase
