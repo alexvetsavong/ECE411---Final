@@ -89,7 +89,7 @@ set_defaults();
 		load_ds = 1'b1;
 		q_in = 32'b0;
 		load_q = 1'b1;
-		counter_in = 0;
+		counter_in = 6'b0;
 		load_counter = 1'b1;
 		done_o = 1'b0;
 	 end
@@ -98,7 +98,7 @@ set_defaults();
 		load_q = 1'b1;
 		dd_in = {32'b0, dividend_i};
 		load_dd = 1'b1;
-		counter_in = 32;
+		counter_in = 6'd32;
 		load_counter = 1'b1;
 	 end
 	 // subtract state: if ds <= dd, then: dd = dd - ds, q += 1
@@ -115,7 +115,7 @@ set_defaults();
 	 end
 	 // shift state: quotient << 1, ds >> 1;
 	 shift: begin
-	   if (counter < 32) begin
+	   if (counter < 6'd32) begin
 	     q_in = q << 1;
 		  load_q = 1'b1;
 		  ds_in = ds >> 1;
@@ -153,7 +153,7 @@ always_comb begin : next_state_logic
 	 division_by_0:
 	   next_state = done;
 	 subtract: begin
-	   if (counter < 32)
+	   if (counter < 6'd32)
 	     next_state = shift;
 		else begin
 		  if (is_signed_i)

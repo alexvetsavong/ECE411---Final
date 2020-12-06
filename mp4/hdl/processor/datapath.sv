@@ -234,10 +234,11 @@ logic mult_start;
 logic div_start;
 logic mult_ip;
 logic div_ip;
+logic m_finished;
 
-assign mult_start = ex_ctrl.multiplier_start && !mult_ip && !data_stall;
+assign mult_start = ex_ctrl.multiplier_start && !mult_ip && !data_stall && !m_finished;
 
-assign div_start = ex_ctrl.divider_start && !div_ip && !data_stall;
+assign div_start = ex_ctrl.divider_start && !div_ip && !data_stall && !m_finished;
 
 add_shift_multiplier multiplier(
     .clk_i          ( clk          ),
@@ -597,6 +598,59 @@ always_comb begin
 
   d_mem_wdata_in = mem_rs2_out;
 
+    // REGFILEMUX
+    unique case (mem_ctrl.regfilemux_sel)
+        regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
+        regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en}; // already ZEXTed
+        regfilemux::u_imm: mem_regfilemux_out = mem_imm;    
+        regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out + 4;          // already +4'ed in EX stage
+        regfilemux::lw: begin
+            unique case (mem_alu_out[1:0])
+                2'b00: mem_regfilemux_out = d_mem_data;
+                2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
+                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lb: begin 
+            unique case (mem_alu_out[1:0])
+                2'b00: mem_regfilemux_out = {{24{d_mem_data[7]}}, d_mem_data[7:0]};
+                2'b01: mem_regfilemux_out = {{24{d_mem_data[15]}}, d_mem_data[15:8]};
+                2'b10: mem_regfilemux_out = {{24{d_mem_data[23]}}, d_mem_data[23:16]};
+                2'b11: mem_regfilemux_out = {{24{d_mem_data[31]}}, d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lbu: begin
+            unique case (mem_alu_out[1:0])
+                2'b00: mem_regfilemux_out = {24'b0, d_mem_data[7:0]};
+                2'b01: mem_regfilemux_out = {24'b0, d_mem_data[15:8]};
+                2'b10: mem_regfilemux_out = {24'b0, d_mem_data[23:16]};
+                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
+            endcase
+        end
+        regfilemux::lh: begin
+            unique case (mem_alu_out[1:0])
+                2'b00: mem_regfilemux_out = {{16{d_mem_data[15]}}, d_mem_data[15:0]};
+                2'b01: mem_regfilemux_out = 32'bX; 
+                2'b10: mem_regfilemux_out = {{16{d_mem_data[31]}}, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = 32'bX;
+            endcase
+        end
+        regfilemux::lhu: begin
+            unique case (mem_alu_out[1:0])
+                2'b00: mem_regfilemux_out = {16'b0, d_mem_data[15:0]};
+                2'b01: mem_regfilemux_out = 32'bX; 
+                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
+                2'b11: mem_regfilemux_out = 32'bX;
+            endcase
+        end
+          regfilemux::mul: mem_regfilemux_out = mem_multiplier_out[31:0];
+         regfilemux::mulh: mem_regfilemux_out = mem_multiplier_out[63:32];
+         regfilemux::div: mem_regfilemux_out = mem_divider_out[31:0];
+         regfilemux::rem: mem_regfilemux_out = mem_divider_out[63:32];
+        default: `BAD_MUX_SEL;
+    endcase
+
 	// MUX before PCMUX in the datapath diagram
     unique case (is_br)
         1'b0: pcmux1_out = if_pc_out + 4;	// Adder in IF stage
@@ -633,31 +687,6 @@ always_comb begin
 		alumux::rs2_out: ex_alumux2_out = ex_rs2_out;
         default: `BAD_MUX_SEL;
     endcase
-	
-	// ALUMUX3 - Data Hazards, please see pseudocode in design doc.
-	if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin	// no data hazards if alumux1 == pc_out
-        if (ex_rs1 == mem_rd && ex_rs1 != 5'b0 && mem_ctrl.rd_valid) begin		// 1 stage away
-            if (mem_ctrl.opcode == op_load) begin
-				ex_alumux3_out = mem_regfilemux_extra;
-				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
-				ex_rs1_fwd = mem_regfilemux_extra;
-		    end 
-		    else begin
-                ex_alumux3_out = mem_regfilemux_out;
-                ex_rs1_fwd = mem_regfilemux_out;
-            end
-		end
-		    else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0 && wb_ctrl.rd_valid) begin	// 2 stages away
-          ex_alumux3_out = wb_regfilemux_out;
-          ex_rs1_fwd = wb_regfilemux_out;
-		 end
-		 else begin 	// no data hazards; set default values.
-		     ex_alumux3_out = ex_alumux1_out;
-		 end
-	end
-	else begin
-	    ex_alumux3_out = ex_alumux1_out;
-	end
 	
 	// ALUMUX4 - Data Hazards
 	if (ex_ctrl.alumux2_sel == alumux::rs2_out) begin
@@ -736,6 +765,31 @@ always_comb begin
 	    ex_cmpmux2_out = ex_cmpmux_out;
 	end
 
+    // ALUMUX3 - Data Hazards, please see pseudocode in design doc.
+    if (ex_ctrl.alumux1_sel == alumux::rs1_out) begin   // no data hazards if alumux1 == pc_out
+        if (ex_rs1 == mem_rd && ex_rs1 != 5'b0 && mem_ctrl.rd_valid) begin      // 1 stage away
+            if (mem_ctrl.opcode == op_load) begin
+                ex_alumux3_out = mem_regfilemux_extra;
+                data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+                ex_rs1_fwd = mem_regfilemux_extra;
+            end 
+            else begin
+                ex_alumux3_out = mem_regfilemux_out;
+                ex_rs1_fwd = mem_regfilemux_out;
+            end
+        end
+            else if (ex_rs1 == wb_rd && ex_rs1 != 5'b0 && wb_ctrl.rd_valid) begin   // 2 stages away
+          ex_alumux3_out = wb_regfilemux_out;
+          ex_rs1_fwd = wb_regfilemux_out;
+         end
+         else begin     // no data hazards; set default values.
+             ex_alumux3_out = ex_alumux1_out;
+         end
+    end
+    else begin
+        ex_alumux3_out = ex_alumux1_out;
+    end
+
     if (ex_ctrl.opcode == op_store && ex_rs2 == mem_rd && ex_rs2 != 5'b0 && mem_ctrl.rd_valid) begin
         if(mem_ctrl.opcode == op_load) begin
             data_stall = data_stall_ctr ? 1'b0 : 1'b1;
@@ -749,61 +803,8 @@ always_comb begin
         ex_rs2_fwd = wb_regfilemux_out;
     end
 
-	// REGFILEMUX
-	unique case (mem_ctrl.regfilemux_sel)
-        regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
-		regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en};	// already ZEXTed
-		regfilemux::u_imm: mem_regfilemux_out = mem_imm;	
-		regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out + 4;	        // already +4'ed in EX stage
-		regfilemux::lw: begin
-            unique case (mem_alu_out[1:0])
-                2'b00: mem_regfilemux_out = d_mem_data;
-                2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
-                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
-                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
-            endcase
-        end
-        regfilemux::lb: begin 
-            unique case (mem_alu_out[1:0])
-                2'b00: mem_regfilemux_out = {{24{d_mem_data[7]}}, d_mem_data[7:0]};
-                2'b01: mem_regfilemux_out = {{24{d_mem_data[15]}}, d_mem_data[15:8]};
-                2'b10: mem_regfilemux_out = {{24{d_mem_data[23]}}, d_mem_data[23:16]};
-                2'b11: mem_regfilemux_out = {{24{d_mem_data[31]}}, d_mem_data[31:24]};
-            endcase
-        end
-        regfilemux::lbu: begin
-            unique case (mem_alu_out[1:0])
-                2'b00: mem_regfilemux_out = {24'b0, d_mem_data[7:0]};
-                2'b01: mem_regfilemux_out = {24'b0, d_mem_data[15:8]};
-                2'b10: mem_regfilemux_out = {24'b0, d_mem_data[23:16]};
-                2'b11: mem_regfilemux_out = {24'b0, d_mem_data[31:24]};
-            endcase
-        end
-        regfilemux::lh: begin
-            unique case (mem_alu_out[1:0])
-                2'b00: mem_regfilemux_out = {{16{d_mem_data[15]}}, d_mem_data[15:0]};
-                2'b01: mem_regfilemux_out = 32'bX; 
-                2'b10: mem_regfilemux_out = {{16{d_mem_data[31]}}, d_mem_data[31:16]};
-                2'b11: mem_regfilemux_out = 32'bX;
-            endcase
-        end
-        regfilemux::lhu: begin
-            unique case (mem_alu_out[1:0])
-                2'b00: mem_regfilemux_out = {16'b0, d_mem_data[15:0]};
-                2'b01: mem_regfilemux_out = 32'bX; 
-                2'b10: mem_regfilemux_out = {16'b0, d_mem_data[31:16]};
-                2'b11: mem_regfilemux_out = 32'bX;
-            endcase
-        end
-		  regfilemux::mul: mem_regfilemux_out = mem_multiplier_out[31:0];
-	     regfilemux::mulh: mem_regfilemux_out = mem_multiplier_out[63:32];
-	     regfilemux::div: mem_regfilemux_out = mem_divider_out[31:0];
-	     regfilemux::rem: mem_regfilemux_out = mem_divider_out[63:32];
-        default: `BAD_MUX_SEL;
-    endcase
-
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
-    if (data_stall || mult_ip || div_ip) begin
+    if (data_stall || mult_start || mult_ip || div_start || div_ip) begin
       load_pc = 1'b0;
       load_if = 1'b0;
       load_id = 1'b0;
@@ -836,10 +837,19 @@ always_ff @(posedge clk) begin
 	else
 		ms_flush1 <= 1'b0;
 
+    if(!load_ex && m_finished)
+        m_finished <= 1'b1;
+    else
+        m_finished <= 1'b0;
+
     if(mult_start)
         mult_ip <= 1'b1;
     else if(mult_ip && !ex_multiplier_done)
         mult_ip <= 1'b1;
+    else if(mult_ip && ex_multiplier_done) begin
+        m_finished <= 1'b1;
+        mult_ip <= 1'b0;
+    end
     else
         mult_ip <= 1'b0;
 
@@ -847,8 +857,14 @@ always_ff @(posedge clk) begin
         div_ip <= 1'b1;
     else if(div_ip && !ex_divider_done)
         div_ip <= 1'b1;
+    else if(div_ip && ex_divider_done) begin
+        m_finished <= 1'b1;
+        div_ip <= 1'b0;
+    end
     else
         div_ip <= 1'b0;
+
+
 end
 
 endmodule : datapath
