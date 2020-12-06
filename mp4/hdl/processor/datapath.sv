@@ -683,8 +683,17 @@ always_comb begin
 	    ex_cmpmux2_out = ex_cmpmux_out;
 	end
 
-    if (mem_ctrl.opcode == op_store && mem_rs2 == wb_rd && mem_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
-        d_mem_wdata_in = wb_regfilemux_out;
+    if (ex_ctrl.opcode == op_store && ex_rs2 == mem_rd && ex_rs2 != 5'b0 && mem_ctrl.rd_valid) begin
+        if(mem_ctrl.opcode == op_load) begin
+            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
+            ex_rs2_fwd = mem_regfilemux_extra;
+        end
+        else begin
+            ex_rs2_fwd = mem_regfilemux_out;
+        end
+    end
+    else if (ex_ctrl.opcode == op_store && ex_rs2 == wb_rd && ex_rs2 != 5'b0 && wb_ctrl.rd_valid) begin
+        ex_rs2_fwd = wb_regfilemux_out;
     end
 
 	// REGFILEMUX
