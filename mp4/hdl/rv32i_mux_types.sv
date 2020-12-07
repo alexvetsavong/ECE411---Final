@@ -45,6 +45,10 @@ typedef enum bit [3:0] {
     ,lbu       = 4'b0110  // unsigned byte
     ,lh        = 4'b0111
     ,lhu       = 4'b1000  // unsigned halfword
+	 ,mul       = 4'b1001
+	 ,mulh      = 4'b1010
+	 ,div       = 4'b1011
+	 ,rem       = 4'b1100
 } regfilemux_sel_t;
 endpackage
 

@@ -45,6 +45,9 @@ function void set_defaults();
     ctrl.rd_valid = 1'b1;
 
     ctrl.commit = 1'b0;
+	 
+	 ctrl.multiplier_start = 1'b0;
+	 ctrl.divider_start = 1'b0;
 endfunction
 
 always_comb begin
@@ -177,11 +180,49 @@ always_comb begin
         end
         op_reg: 
         begin
-            ctrl.immmux_sel = immmux::i_imm;
-            ctrl.alumux1_sel = alumux::rs1_out;
-            ctrl.alumux2_sel = alumux::rs2_out;
-            ctrl.load_regfile = 1'b1;
-            ctrl.commit = 1'b1;
+		    ctrl.immmux_sel = immmux::i_imm;
+          ctrl.alumux1_sel = alumux::rs1_out;
+          ctrl.alumux2_sel = alumux::rs2_out;
+          ctrl.load_regfile = 1'b1;
+          ctrl.commit = 1'b1;
+			 
+		    if (funct7 == 7'b0000001) begin	// M-extension
+			   case (funct3)
+				  3'b000: begin  //MUL
+				    ctrl.multiplier_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::mul;
+				  end
+				  3'b001: begin  //MULH
+				    ctrl.multiplier_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::mulh;
+				  end
+				  3'b010: begin  //MULHSU
+				    ctrl.multiplier_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::mulh;
+				  end
+				  3'b011: begin  //MULHU
+				    ctrl.multiplier_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::mulh;
+				  end
+				  3'b100: begin  //DIV
+				    ctrl.divider_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::div;
+				  end
+				  3'b101: begin  //DIVU
+				    ctrl.divider_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::div;
+				  end
+				  3'b110: begin  //REM
+				    ctrl.divider_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::rem;
+				  end
+				  3'b111: begin  //REMU
+				    ctrl.divider_start = 1'b1;
+					 ctrl.regfilemux_sel = regfilemux::rem;
+				  end
+				endcase
+			 end 
+			 else begin
             case (arith_funct3_t'(funct3))
                 slt: 
                 begin 
@@ -216,6 +257,7 @@ always_comb begin
                     ctrl.aluop = alu_ops'(funct3);
                 end
             endcase
+			 end
         end
         op_csr:
         begin

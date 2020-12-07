@@ -7,6 +7,9 @@ module add_shift_multiplier
     input operand_t multiplicand_i,
     input operand_t multiplier_i,
     input logic start_i,
+	 input logic[2:0] mul_funct3,
+	 // need this for signed/unsigned conversion
+	 // MUL 000: signed, MULH 001 signed, MULHU 010 unsigned, MULHSU 011 signed*unsigned
     output logic ready_o,
     output result_t product_o,
     output logic done_o
@@ -52,11 +55,48 @@ function void init(input logic[width_p-1:0] multiplicand,
     ms_next.done = 1'b0;
     ms_next.iteration = 0;
     ms_next.op = ADD;
-
-    ms_next.M = multiplicand;
+    
+	 // signed  / unsigned
+	 case(mul_funct3)
+	   3'b000: begin // MUL 000 signed
+		  if(multiplicand[width_p-1] == 1)
+		    ms_next.M = ~(multiplicand) + 1;
+		  else
+		    ms_next.M = multiplicand;
+		  if(multiplier[width_p-1] == 1)
+		    ms_next.Q = ~(multiplier) + 1;
+		  else
+		    ms_next.Q = multiplier;
+		end
+		3'b001: begin // MULH 001 signed
+		  if(multiplicand[width_p-1] == 1)
+		    ms_next.M = ~(multiplicand) + 1;
+		  else
+		    ms_next.M = multiplicand;
+		  if(multiplier[width_p-1] == 1)
+		    ms_next.Q = ~(multiplier) + 1;
+		  else
+		    ms_next.Q = multiplier;
+		end
+		3'b010: begin // MULHSU 010 signed*unsigned
+		  // stackoverflow: rs1 is signed, rs2 (multiplier) is unsigned.
+		  if(multiplicand[width_p-1] == 1)
+		    ms_next.M = ~(multiplicand) + 1;
+		  else
+		    ms_next.M = multiplicand;
+		  ms_next.Q = multiplier;
+		end
+		3'b011: begin  // MULHU 011 unsigned
+		  ms_next.M = multiplicand;
+		  ms_next.Q = multiplier;
+		end
+		default: begin	// useless, get rid of warnings
+		  ms_next.M = multiplicand;
+		  ms_next.Q = multiplier;
+		end
+	 endcase
     ms_next.C = 1'b0;
     ms_next.A = 0;
-    ms_next.Q = multiplier;
 endfunction
 
 // Describes state after add occurs
@@ -76,6 +116,26 @@ function void shift(input mstate_s cur, output mstate_s next);
       next.op = ADD;
       next.iteration += 1;
       if (next.iteration == width_p) begin
+		      // add the sign back
+				case(mul_funct3)
+	           3'b000: begin // MUL 000 signed
+				    // sign = multiplicand[31] XOR multiplier[31]
+					 if (multiplicand_i[width_p-1] ^ multiplier_i[width_p-1] == 1)
+					   {next.A, next.Q} = ~{next.A, next.Q} + 1;
+		        end
+		        3'b001: begin // MULH 001 signed
+				    if (multiplicand_i[width_p-1] ^ multiplier_i[width_p-1] == 1)
+					   {next.A, next.Q} = ~{next.A, next.Q} + 1;
+		        end
+		        3'b010: begin // MULHSU 010 signed*unsigned
+				    if (multiplicand_i[width_p-1] == 1)
+					   {next.A, next.Q} = ~{next.A, next.Q} + 1;
+		        end
+		        3'b011: begin // MULHU 011 unsigned
+				    ;
+		        end
+				  default:;
+	         endcase
             next.op = DONE;
             next.done = 1'b1;
             next.ready = 1'b1;
@@ -93,22 +153,31 @@ always_comb begin
     shift(ms, ms_shift);
 end
 
+logic start_after_reset = 1'b0;
 /*************************** Non-Blocking Assignments ************************/
 always_ff @(posedge clk_i) begin
-    if (~reset_n_i)
-            ms <= ms_reset;
-    else if (update_state) begin
-        if (start_i & ready_o) begin
-            ms <= ms_init;
+//    if (~reset_n_i)
+//            ms <= ms_reset;
+//    else if (update_state) begin
+        if (start_i) begin	// & ready_o
+            ms <= ms_reset; //ms_init
+				start_after_reset <= 1'b1;
         end
         else begin
+		    if(start_after_reset == 1'b1) begin
+			   ms <= ms_init;
+				start_after_reset <= 1'b0;
+			 end
+			 else begin
             case (ms.op)
                 ADD: ms <= ms_add;
                 SHIFT: ms <= ms_shift;
+					 DONE: ms <= ms;  // new edit
                 default: ms <= ms_reset;
             endcase
+			 end
         end
-    end
+//    end
 end
 /*****************************************************************************/
 

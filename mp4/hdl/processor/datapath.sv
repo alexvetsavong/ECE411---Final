@@ -77,6 +77,9 @@ rv32i_ctrl_word ex_ctrl;
 rv32i_word ex_alumux1_out, ex_alumux2_out, ex_cmpmux_out, ex_alumux3_out, ex_alumux4_out, ex_cmpmux1_out, ex_cmpmux2_out;
 logic ex_br_en;
 rv32i_word ex_alu_out, ex_rs1_fwd, ex_rs2_fwd;
+logic [63:0] ex_multiplier_out;
+logic [63:0] ex_divider_out;
+logic ex_multiplier_done, ex_divider_done;
 
 // EX/MEM
 rv32i_word mem_pc_out, mem_rs1_out, mem_rs2_out, mem_imm, mem_alu_out, mem_i_mem_data;
@@ -86,6 +89,8 @@ rv32i_ctrl_word mem_ctrl;
 
 logic trap;
 logic [3:0] rmask, wmask;
+logic [63:0] mem_multiplier_out;
+logic [63:0] mem_divider_out;
 rv32i_word d_mem_wdata_in;
 
 // MEM
@@ -221,6 +226,45 @@ cmp CMP(
 	 .out (ex_br_en)
 );
 
+logic ready_o;
+
+logic mult_start;
+logic div_start;
+logic mult_ip;
+logic div_ip;
+logic m_finished;
+
+assign mult_start = ex_ctrl.multiplier_start && !mult_ip && !data_stall && !m_finished;
+
+assign div_start = ex_ctrl.divider_start && !div_ip && !data_stall && !m_finished;
+
+add_shift_multiplier multiplier(
+    .clk_i          ( clk          ),
+    .reset_n_i      ( ~rst      ),	//change later
+    .multiplicand_i ( ex_alumux3_out ),
+    .multiplier_i   ( ex_alumux4_out ),
+    .start_i        ( mult_start ),
+    .mul_funct3     ( ex_ctrl.funct3 ),
+    .ready_o        ( ready_o ),
+    .product_o      ( ex_multiplier_out ),
+    .done_o         ( ex_multiplier_done )
+);
+
+logic is_signed;
+assign is_signed = ~ex_ctrl.funct3[0];
+
+divider divider (
+    .clk_i        ( clk          ),
+    .reset_i      ( rst      ),	//change later
+    .dividend_i   ( ex_alumux3_out ),
+    .divisor_i    ( ex_alumux4_out ),
+    .start_i      ( div_start ),
+    .is_signed_i  ( is_signed ),
+    .quotient_o   ( ex_divider_out[31:0] ),
+	.remainder_o  ( ex_divider_out[63:32]),
+    .done_o       ( ex_divider_done )
+);
+
 // EX/MEM
 register ex_mem_pc_reg(		// PC Adder + Reg
     .clk  (clk), .rst (rst), .load (load_ex),
@@ -280,6 +324,16 @@ register #(.width(1)) ex_mem_is_br_reg(
 ctrl_reg ex_mem_ctrl_reg(
     .clk  (clk), .rst (rst), .load (load_ex),
     .in   (ex_ctrl), .out  (mem_ctrl)
+);
+
+register #(.width(64)) ex_mem_multiplier_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_multiplier_out), .out  (mem_multiplier_out)
+);
+
+register #(.width(64)) ex_mem_divider_reg(
+    .clk  (clk), .rst (rst || ex_flush), .load (load_ex),
+    .in   (ex_divider_out), .out  (mem_divider_out)
 );
 
 // MEM
@@ -542,20 +596,11 @@ always_comb begin
 
     // REGFILEMUX
     unique case (mem_ctrl.regfilemux_sel)
-        regfilemux::alu_out: begin
-        	mem_regfilemux_out = mem_alu_out;
-        end
-        regfilemux::br_en: begin
-        	mem_regfilemux_out = {31'b0, mem_br_en};
-        end
-        regfilemux::u_imm: begin
-        	mem_regfilemux_out = mem_imm;   
-        end
-        regfilemux::pc_plus4: begin
-        	mem_regfilemux_out = mem_pc_out + 4;
-        end
+        regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
+        regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en}; // already ZEXTed
+        regfilemux::u_imm: mem_regfilemux_out = mem_imm;    
+        regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out + 4;          // already +4'ed in EX stage
         regfilemux::lw: begin
-        	mem_regfilemux_out = mem_alu_out;
             unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = d_mem_data;
                 2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
@@ -595,6 +640,10 @@ always_comb begin
                 2'b11: mem_regfilemux_out = 32'bX;
             endcase
         end
+        regfilemux::mul: mem_regfilemux_out = mem_multiplier_out[31:0];
+        regfilemux::mulh: mem_regfilemux_out = mem_multiplier_out[63:32];
+        regfilemux::div: mem_regfilemux_out = mem_divider_out[31:0];
+        regfilemux::rem: mem_regfilemux_out = mem_divider_out[63:32];
         default: `BAD_MUX_SEL;
     endcase
 
@@ -753,7 +802,7 @@ always_comb begin
     endcase
 
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
-    if (data_stall || !i_mem_resp || (!d_mem_resp && mem_ctrl.mem_op)) begin
+    if (data_stall || mult_start || mult_ip || div_start || div_ip|| !i_mem_resp || (!d_mem_resp && mem_ctrl.mem_op)) begin
       load_pc = 1'b0;
       load_if = 1'b0;
       load_id = 1'b0;
@@ -769,6 +818,34 @@ always_ff @(posedge clk) begin
 		data_stall_ctr <= 1'b1;
 	else
 		data_stall_ctr <= 1'b0;
+
+    if(!load_ex && m_finished)
+        m_finished <= 1'b1;
+    else
+        m_finished <= 1'b0;
+
+    if(mult_start)
+        mult_ip <= 1'b1;
+    else if(mult_ip && !ex_multiplier_done)
+        mult_ip <= 1'b1;
+    else if(mult_ip && ex_multiplier_done) begin
+        m_finished <= 1'b1;
+        mult_ip <= 1'b0;
+    end
+    else
+        mult_ip <= 1'b0;
+
+    if(div_start)
+        div_ip <= 1'b1;
+    else if(div_ip && !ex_divider_done)
+        div_ip <= 1'b1;
+    else if(div_ip && ex_divider_done) begin
+        m_finished <= 1'b1;
+        div_ip <= 1'b0;
+    end
+    else
+        div_ip <= 1'b0;
+
 end
 
 endmodule : datapath
