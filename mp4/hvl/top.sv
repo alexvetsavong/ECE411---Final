@@ -142,11 +142,6 @@ int l1d_miss_ctr = 0;
 int l2_serve_ctr = 0;
 int l2_miss_ctr = 0;
 
-logic [31:0] a = 32'h80000000;
-logic [31:0] g = $signed(a) >>> 5;
-
-initial $display("g: %x", g);
-
 initial $display("l2_cache field: %d", dut.i_cache_top.L2_CACHE);
 initial $display("l1_four_way field: %d", dut.i_cache_top.L1_FOUR_WAY);
 
