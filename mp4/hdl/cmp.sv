@@ -7,44 +7,29 @@ module cmp
 	output logic out
 );
 
+rv32i_word result;
+
 always_comb
 begin
+	result = in_a - in_b;
     case (cmpop)
 	    beq: begin
-		    if (in_a == in_b)
-		        out = 1;
-			else
-				out = 0;
+			out = 1'b1;
+			for (int i = 0; i < 32; i++) begin
+				if (result[i] == 1'b1) out = 1'b0;
+			end
 		end
 		bne: begin
-		    if (in_a != in_b)
-		        out = 1;
-			else
-				out = 0;
+			out = 1'b0;
+			for (int i = 0; i < 32; i++) begin
+				if (result[i] == 1'b1) out = 1'b1;
+			end
 		end
-	    blt: begin
-		    if ($signed(in_a) < $signed(in_b))
-		        out = 1;
-			else
-				out = 0;
+	    blt, bltu: begin
+			out = result[31];
 		end
-		bltu: begin
-		    if (in_a < in_b)
-		        out = 1;
-			else
-				out = 0;
-		end
-		bge: begin
-		    if ($signed(in_a) >= $signed(in_b))
-		        out = 1;
-			else
-				out = 0;
-		end
-		bgeu: begin
-		    if (in_a >= in_b)
-		        out = 1;
-			else
-				out = 0;
+		bge, bgeu: begin
+			out = ~(result[31]);
 		end
 	    default: 
 		    out = 0;
