@@ -796,7 +796,7 @@ always_comb begin
     // PCMUX
     unique case (ex_ctrl.opcode == op_jalr)
         1'b1: begin
-            pcmux2_out = ex_rs1_fwd + ex_imm;   // JALR: Target addr <- i_imm + rs1, with LSB set to zero.
+            pcmux2_out = (data_stall) ? 32'b0 : ex_rs1_fwd + ex_imm;   // JALR: Target addr <- i_imm + rs1, with LSB set to zero.
         end 
         default: pcmux2_out = pcmux1_out;
     endcase

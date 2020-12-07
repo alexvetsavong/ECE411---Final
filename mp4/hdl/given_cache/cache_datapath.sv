@@ -32,7 +32,7 @@ logic valid_out;
 always_comb begin
   address_tag = mem_address[31:9];
   index = mem_address[8:5];
-  hit = valid_out && (tag_out == address_tag);
+  hit = valid_out && (tag_out === address_tag);
   pmem_address = (dirty_out) ? {tag_out, mem_address[8:0]} : mem_address;
   mem_rdata = line_out;
   pmem_wdata = line_out;
