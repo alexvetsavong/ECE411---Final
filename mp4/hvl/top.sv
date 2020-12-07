@@ -62,16 +62,6 @@ assign rvfi.rs1_rdata = dut.i_datapath.wb_rs1_out;
 assign rvfi.rs2_rdata = (dut.i_datapath.wb_rs1 == dut.i_datapath.wb_rs2) ? dut.i_datapath.wb_rs1_out : dut.i_datapath.wb_rs2_out;
 assign rvfi.load_regfile = dut.i_datapath.wb_ctrl.load_regfile;
 assign rvfi.rd_addr = dut.i_datapath.wb_rd;
-// logic signed [31:0] signed_regmux_out;
-// always_comb begin
-//     case(dut.i_datapath.wb_d_mem_address[1:0])
-//         2'b00: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 0;
-//         2'b01: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 8;
-//         2'b10: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 16;
-//         2'b11: signed_regmux_out = $signed(dut.i_datapath.wb_regfilemux_out) >>> 24;
-//     endcase
-// end
-//assign rvfi.rd_wdata = (dut.i_datapath.wb_rd != 5'b0) ? (dut.i_datapath.wb_ctrl.opcode == 7'b0000011 ? (signed_regmux_out) : dut.i_datapath.wb_regfilemux_out) : 32'b0;
 assign rvfi.rd_wdata = (dut.i_datapath.wb_rd != 5'b0) ? dut.i_datapath.wb_regfilemux_out : 32'b0;
 // PC:
 assign rvfi.pc_rdata = dut.i_datapath.wb_pc_out;
@@ -89,26 +79,6 @@ assign rvfi.mem_wdata = dut.i_datapath.wb_d_mem_wdata;
 
 /********************* Assign Shadow Memory Signals Here *********************/
 // This section not required until CP2
-/*
-The following signals need to be set:
-icache signals:
-
-    itf.inst_read
-    itf.inst_addr
-    itf.inst_resp
-    itf.inst_rdata
-
-dcache signals:
-    itf.data_read
-    itf.data_write
-    itf.data_mbe
-    itf.data_addr
-    itf.data_wdata
-    itf.data_resp
-    itf.data_rdata
-
-Please refer to tb_itf.sv for more information.
-*/
 
 // Shadow memory: 
 assign itf.inst_read = dut.i_mem_read;

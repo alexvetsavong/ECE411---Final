@@ -29,7 +29,7 @@ module cache_top
     input logic pmem_resp
 );
 
-parameter L2_CACHE = 0;
+parameter L2_CACHE = 1;
 parameter L1_FOUR_WAY = 0;
 
 rv32i_word i_pmem_address, d_pmem_address, c_pmem_address;

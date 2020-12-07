@@ -89,7 +89,7 @@ logic [3:0] rmask, wmask;
 rv32i_word d_mem_wdata_in;
 
 // MEM
-rv32i_word mem_regfilemux_out, mem_regfilemux_extra;
+rv32i_word mem_regfilemux_out, mem_regfilemux_extra, d_mem_data_reg;
 
 // MEM/WB:
 rv32i_word wb_br_en;		// Note that br_en is zero-extended to 32 bits
@@ -542,11 +542,20 @@ always_comb begin
 
     // REGFILEMUX
     unique case (mem_ctrl.regfilemux_sel)
-        regfilemux::alu_out: mem_regfilemux_out = mem_alu_out;
-        regfilemux::br_en: mem_regfilemux_out = {31'b0, mem_br_en}; // already ZEXTed
-        regfilemux::u_imm: mem_regfilemux_out = mem_imm;    
-        regfilemux::pc_plus4: mem_regfilemux_out = mem_pc_out + 4;          // already +4'ed in EX stage
+        regfilemux::alu_out: begin
+        	mem_regfilemux_out = mem_alu_out;
+        end
+        regfilemux::br_en: begin
+        	mem_regfilemux_out = {31'b0, mem_br_en};
+        end
+        regfilemux::u_imm: begin
+        	mem_regfilemux_out = mem_imm;   
+        end
+        regfilemux::pc_plus4: begin
+        	mem_regfilemux_out = mem_pc_out + 4;
+        end
         regfilemux::lw: begin
+        	mem_regfilemux_out = mem_alu_out;
             unique case (mem_alu_out[1:0])
                 2'b00: mem_regfilemux_out = d_mem_data;
                 2'b01: mem_regfilemux_out = {8'b0, d_mem_data[31:8]};
@@ -626,6 +635,7 @@ always_comb begin
             if (mem_ctrl.mem_read) begin
 				ex_alumux3_out = mem_regfilemux_extra;
 				ex_rs1_fwd = mem_regfilemux_extra;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 		    end 
 		    else begin
                 ex_alumux3_out = mem_regfilemux_out;
@@ -650,6 +660,7 @@ always_comb begin
 		    if (mem_ctrl.mem_read) begin
 				ex_alumux4_out = mem_regfilemux_extra;
 				ex_rs2_fwd = mem_regfilemux_extra;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 			end
             else begin
 		        ex_alumux4_out = mem_regfilemux_out;
@@ -680,6 +691,7 @@ always_comb begin
 		  if (mem_ctrl.mem_read) begin
 		  	    ex_cmpmux1_out = mem_regfilemux_extra;
 				ex_rs1_fwd = mem_regfilemux_extra;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 		  end
       	else begin
 				ex_cmpmux1_out = mem_regfilemux_out;
@@ -700,6 +712,7 @@ always_comb begin
 		    if (mem_ctrl.mem_read) begin
 		     	ex_cmpmux2_out = mem_regfilemux_extra;
 				ex_rs2_fwd = mem_regfilemux_extra;
+				data_stall = data_stall_ctr ? 1'b0 : 1'b1;
 			end
             else begin
 		        ex_cmpmux2_out = mem_regfilemux_out;
@@ -721,6 +734,7 @@ always_comb begin
     if (ex_ctrl.opcode == op_store && ex_rs2 == mem_rd && ex_rs2 != 5'b0 && mem_ctrl.rd_valid) begin
         if(mem_ctrl.mem_read) begin
             ex_rs2_fwd = mem_regfilemux_extra;
+            data_stall = data_stall_ctr ? 1'b0 : 1'b1;
         end
         else begin
             ex_rs2_fwd = mem_regfilemux_out;
@@ -737,10 +751,6 @@ always_comb begin
         end 
         default: pcmux2_out = pcmux1_out;
     endcase
-
-    if((ex_rs1 == mem_rd || ex_rs2 == mem_rd) && mem_ctrl.mem_read && !data_stall_ctr) begin
-        data_stall = 1'b1;
-    end
 
     // if we have data hazard, handle stalling / if we have RAW, stall for extra cycle
     if (data_stall || !i_mem_resp || (!d_mem_resp && mem_ctrl.mem_op)) begin
