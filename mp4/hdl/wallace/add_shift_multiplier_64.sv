@@ -78,16 +78,16 @@ function void init(input logic[width_p-1:0] multiplicand,
 		  else
 		    ms_next.Q = multiplier;
 		end
-		3'b010: begin // MULHU 010 unsigned
-		  ms_next.M = multiplicand;
-		  ms_next.Q = multiplier;
-		end
-		3'b011: begin // MULHSU 011 signed*unsigned
+		3'b010: begin // MULHSU 010 signed*unsigned
 		  // stackoverflow: rs1 is signed, rs2 (multiplier) is unsigned.
 		  if(multiplicand[width_p-1] == 1)
 		    ms_next.M = ~(multiplicand) + 1;
 		  else
 		    ms_next.M = multiplicand;
+		  ms_next.Q = multiplier;
+		end
+		3'b011: begin  // MULHU 011 unsigned
+		  ms_next.M = multiplicand;
 		  ms_next.Q = multiplier;
 		end
 		default: begin	// useless, get rid of warnings
@@ -127,12 +127,12 @@ function void shift(input mstate_s cur, output mstate_s next);
 				    if (multiplicand_i[width_p-1] ^ multiplier_i[width_p-1] == 1)
 					   {next.A, next.Q} = ~{next.A, next.Q} + 1;
 		        end
-		        3'b010: begin // MULHU 010 unsigned
-				    ;
-		        end
-		        3'b011: begin // MULHSU 011 signed*unsigned
+		        3'b010: begin // MULHSU 010 signed*unsigned
 				    if (multiplicand_i[width_p-1] == 1)
 					   {next.A, next.Q} = ~{next.A, next.Q} + 1;
+		        end
+		        3'b011: begin // MULHU 011 unsigned
+				    ;
 		        end
 				  default:;
 	         endcase
@@ -153,22 +153,31 @@ always_comb begin
     shift(ms, ms_shift);
 end
 
+logic start_after_reset = 1'b0;
 /*************************** Non-Blocking Assignments ************************/
 always_ff @(posedge clk_i) begin
-    if (~reset_n_i)
-            ms <= ms_reset;
-    else if (update_state) begin
-        if (start_i & ready_o) begin
-            ms <= ms_init;
+//    if (~reset_n_i)
+//            ms <= ms_reset;
+//    else if (update_state) begin
+        if (start_i) begin	// & ready_o
+            ms <= ms_reset; //ms_init
+				start_after_reset <= 1'b1;
         end
         else begin
+		    if(start_after_reset == 1'b1) begin
+			   ms <= ms_init;
+				start_after_reset <= 1'b0;
+			 end
+			 else begin
             case (ms.op)
                 ADD: ms <= ms_add;
                 SHIFT: ms <= ms_shift;
+					 DONE: ms <= ms;  // new edit
                 default: ms <= ms_reset;
             endcase
+			 end
         end
-    end
+//    end
 end
 /*****************************************************************************/
 
