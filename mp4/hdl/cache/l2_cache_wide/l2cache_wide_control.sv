@@ -1,86 +1,84 @@
-/* MODIFY. The cache controller. It is a state machine
-that controls the behavior of the cache. */
 
-module cache_control (
+module l2cache_wide_control (
 	input clk,
 	input rst,
 	input logic mem_read,
 	input logic mem_write,
 	output logic mem_resp,
-	input logic [1:0] cache_hit,
+	input logic [3:0] cache_hit,
 	input logic write_back,
-	input logic way_reg,
-	input logic way,
-	output logic [1:0] load_dirty,
+	input logic [1:0] way_reg,
+	input logic [1:0] way,
+	output logic [3:0] load_dirty,
 	output logic set_dirty,
 	output logic load_lru,
-	output logic set_lru,
-	output logic way_sel,
+	output logic [1:0] way_sel,
 	input logic pmem_resp,
 	output logic pmem_write,
 	output logic pmem_read,
 	output logic [1:0] write_sel,
-	output logic [1:0] load_valid,
+	output logic [3:0] load_valid,
 	output logic set_valid,
-	output logic [1:0] load_tag,
-	output logic load_way_reg
+	output logic [3:0] load_tag,
+	output logic load_way_reg,
+	output logic [3:0] read_data_array
 );
-
 
 
 enum int unsigned {
     /* List of states */
-    idle, writeback, allocate
+    idle, writeback, allocate, serve
 } state, next_states;
 
 function void set_defaults();
-    load_dirty = 2'b0;
-    set_dirty = 1'b0;
-    load_lru = 1'b0;
-    set_lru = 1'b0;
-    way_sel = way_reg;
-    pmem_read = 1'b0;
-    pmem_write = 1'b0;
-    write_sel = 2'b00;
-    load_valid = 2'b0;
-    set_valid = 1'b0;
-    load_tag = 2'b0;
-    load_way_reg = 1'b0;
-    mem_resp = 1'b0;
+	load_dirty = 4'b0;
+	set_dirty = 1'b0;
+	load_lru = 1'b0;
+	way_sel = way_reg;
+	pmem_read = 1'b0;
+	pmem_write = 1'b0;
+	write_sel = 2'b00;
+	load_valid = 4'b0;
+	set_valid = 1'b0;
+	load_tag = 4'b0;
+	load_way_reg = 1'b0;
+	read_data_array = 4'b0;
+	mem_resp = 1'b0;
 endfunction
 
 function void set_idle();
-    load_way_reg = 1'b1;
-    if(mem_read || mem_write) begin
-        way_sel = way;
-        if (cache_hit != 2'b0) begin
-            if (mem_write) begin
-                load_dirty[way] = 1'b1;
-                set_dirty = 1'b1;
-                write_sel = 2'b10;
-            end
-            load_lru = 1'b1;
-            set_lru = ~way;
-            mem_resp = 1'b1;
-        end
-        else if (write_back != 1'b0) begin
-            load_dirty[way] = 1'b1;
-            set_dirty = 1'b0;
-        end
-        else begin
-            write_sel = 2'b01;
-            load_valid[way] = 1'b1;
-            set_valid = 1'b1;
-            load_tag[way] = 1'b1;
+	load_way_reg = 1'b1;
+	if(mem_read || mem_write) begin
+		way_sel = way;
+    	if (cache_hit != 4'b0) begin
+    		if (mem_write) begin
+    			load_dirty[way] = 1'b1;
+    			set_dirty = 1'b1;
+			write_sel = 2'b10;
+    		end
+    		read_data_array[way] = mem_read ? 1'b1 : 1'b0;
+    		load_lru = 1'b1;
+    	end
+    	else if (write_back != 1'b0) begin
+    		load_dirty[way] = 1'b1;
+    		set_dirty = 1'b0;
+    		read_data_array[way] = 1'b1;
+    	end
+    	else begin
+		write_sel = 2'b01;
+		load_valid[way] = 1'b1;
+		set_valid = 1'b1;
+		load_tag[way] = 1'b1;
     	end
     end
 endfunction
 
 
 function void set_writeback();
-    pmem_write = 1'b1;
-    load_dirty[way_reg] = 1'b1;
-    set_dirty = 1'b0;
+    	pmem_write = 1'b1;
+    	load_dirty[way_reg] = 1'b1;
+    	set_dirty = 1'b0;
+    	read_data_array[way_reg] = 1'b1;
 	if(pmem_resp == 1'b1)
 		load_tag[way_reg] = 1'b1;
 endfunction
@@ -107,6 +105,9 @@ begin : state_actions
     		allocate: begin
 			set_allocate();
 			end
+			serve: begin
+			mem_resp = 1'b1;
+			end
     	endcase
 end
 
@@ -117,8 +118,8 @@ begin : next_state_logic
     unique case (state)
     	idle: begin
     		if(mem_read || mem_write) begin
-    			if (cache_hit != 2'b0)
-    				next_states = idle;
+    			if (cache_hit != 4'b0)
+    				next_states = serve;
     			else if (write_back != 1'b0)
     				next_states = writeback;
     			else
@@ -138,6 +139,9 @@ begin : next_state_logic
     		else
     			next_states = idle;
     	end
+    	serve: begin
+    		next_states = idle;
+    	end
         default: next_states = idle;
     endcase
 end
@@ -153,4 +157,4 @@ begin: next_state_assignment
     end
 end
 
-endmodule : cache_control
+endmodule : l2cache_wide_control

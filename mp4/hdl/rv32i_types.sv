@@ -73,7 +73,7 @@ typedef enum bit [2:0] {
 } alu_ops;
 
 typedef struct packed {
-    logic mem_read, mem_write;
+    logic mem_read, mem_write, mem_op;
 
     immmux::immmux_sel_t immmux_sel;
     alumux::alumux1_sel_t alumux1_sel;

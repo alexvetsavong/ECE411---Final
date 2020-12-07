@@ -33,6 +33,7 @@ always_comb
 begin
     reset_val.mem_read = 1'b0; 
     reset_val.mem_write = 1'b0;
+    reset_val.mem_op = 1'b0;
 
     reset_val.immmux_sel = immmux::i_imm;
     reset_val.alumux1_sel = alumux::rs1_out;

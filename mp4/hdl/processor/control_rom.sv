@@ -22,6 +22,7 @@ assign store_funct3 = store_funct3_t'(funct3);
 function void set_defaults();
     ctrl.mem_read = 1'b0; 
     ctrl.mem_write = 1'b0;
+    ctrl.mem_op = 1'b0;
 
     ctrl.immmux_sel = immmux::i_imm;
     ctrl.alumux1_sel = alumux::rs1_out;
@@ -111,7 +112,7 @@ always_comb begin
             // memory stuff needs to be looked at
             // ctrl.mem_address = alu_out; // figure this out
             ctrl.mem_read = 1'b1;
-            
+            ctrl.mem_op = 1'b1;
             // put case statements in whenever we figure out alignment
             unique case (funct3)
                     3'b000: ctrl.regfilemux_sel = regfilemux::lb;
@@ -134,7 +135,7 @@ always_comb begin
             // ctrl.mem_address = alu_out; // figure this out
             // ctrl.wdata = rs2_out;
             ctrl.mem_write = 1'b1;
-
+            ctrl.mem_op = 1'b1;
             ctrl.load_regfile = 1'b0;
             ctrl.commit = 1'b1;
             ctrl.rd_valid = 1'b0;

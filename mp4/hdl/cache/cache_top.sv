@@ -29,7 +29,7 @@ module cache_top
     input logic pmem_resp
 );
 
-parameter L2_CACHE = 1;
+parameter L2_CACHE = 0;
 parameter L1_FOUR_WAY = 0;
 
 rv32i_word i_pmem_address, d_pmem_address, c_pmem_address;
@@ -84,89 +84,90 @@ cache_wide d_cache (
 );
 end
 else begin
-cache i_cache (
-    .clk(clk),
-    .rst(rst),
-    .mem_address(i_mem_address),
-    .mem_rdata(i_mem_rdata),
-    .mem_wdata(i_mem_wdata),
-    .mem_read(i_mem_read),
-    .mem_write(i_mem_write),
-    .mem_byte_enable(i_mem_byte_enable),
-    .mem_resp(i_mem_resp),
+// cache i_cache (
+//     .clk(clk),
+//     .rst(rst),
+//     .mem_address(i_mem_address),
+//     .mem_rdata(i_mem_rdata),
+//     .mem_wdata(i_mem_wdata),
+//     .mem_read(i_mem_read),
+//     .mem_write(i_mem_write),
+//     .mem_byte_enable(i_mem_byte_enable),
+//     .mem_resp(i_mem_resp),
 
-    .pmem_address(i_pmem_address),
-    .pmem_rdata(i_pmem_rdata),
-    .pmem_wdata(i_pmem_wdata),
-    .pmem_read(i_pmem_read),
-    .pmem_write(i_pmem_write),
-    .pmem_resp(i_pmem_resp)
-);
-cache d_cache (
-    .clk(clk),
-    .rst(rst),
-    .mem_address(d_mem_address),
-    .mem_rdata(d_mem_rdata),
-    .mem_wdata(d_mem_wdata),
-    .mem_read(d_mem_read),
-    .mem_write(d_mem_write),
-    .mem_byte_enable(d_mem_byte_enable),
-    .mem_resp(d_mem_resp),
+//     .pmem_address(i_pmem_address),
+//     .pmem_rdata(i_pmem_rdata),
+//     .pmem_wdata(i_pmem_wdata),
+//     .pmem_read(i_pmem_read),
+//     .pmem_write(i_pmem_write),
+//     .pmem_resp(i_pmem_resp)
+// );
+// cache d_cache (
+//     .clk(clk),
+//     .rst(rst),
+//     .mem_address(d_mem_address),
+//     .mem_rdata(d_mem_rdata),
+//     .mem_wdata(d_mem_wdata),
+//     .mem_read(d_mem_read),
+//     .mem_write(d_mem_write),
+//     .mem_byte_enable(d_mem_byte_enable),
+//     .mem_resp(d_mem_resp),
 
-    .pmem_address(d_pmem_address),
-    .pmem_rdata(d_pmem_rdata),
-    .pmem_wdata(d_pmem_wdata),
-    .pmem_read(d_pmem_read),
-    .pmem_write(d_pmem_write),
-    .pmem_resp(d_pmem_resp)
-);
-
-// given_cache d_cache (
-//   .clk(clk),
-
-//   /* Physical memory signals */
-//   .pmem_resp(d_pmem_resp),
-//   .pmem_rdata(d_pmem_rdata),
-//   .pmem_address(d_pmem_address),
-//   .pmem_wdata(d_pmem_wdata),
-//   .pmem_read(d_pmem_read),
-//   .pmem_write(d_pmem_write),
-
-//   /* CPU memory signals */
-//   .mem_read(d_mem_read),
-//   .mem_write(d_mem_write),
-//   .mem_byte_enable_cpu(d_mem_byte_enable),
-//   .mem_address(d_mem_address),
-//   .mem_wdata_cpu(d_mem_wdata),
-//   .mem_resp(d_mem_resp),
-//   .mem_rdata_cpu(d_mem_rdata)
+//     .pmem_address(d_pmem_address),
+//     .pmem_rdata(d_pmem_rdata),
+//     .pmem_wdata(d_pmem_wdata),
+//     .pmem_read(d_pmem_read),
+//     .pmem_write(d_pmem_write),
+//     .pmem_resp(d_pmem_resp)
 // );
 
-// given_cache i_cache (
-//   .clk(clk),
+given_cache d_cache (
+  .clk(clk),
 
-//   /* Physical memory signals */
-//   .pmem_resp(i_pmem_resp),
-//   .pmem_rdata(i_pmem_rdata),
-//   .pmem_address(i_pmem_address),
-//   .pmem_wdata(i_pmem_wdata),
-//   .pmem_read(i_pmem_read),
-//   .pmem_write(i_pmem_write),
+  /* Physical memory signals */
+  .pmem_resp(d_pmem_resp),
+  .pmem_rdata(d_pmem_rdata),
+  .pmem_address(d_pmem_address),
+  .pmem_wdata(d_pmem_wdata),
+  .pmem_read(d_pmem_read),
+  .pmem_write(d_pmem_write),
 
-//   /* CPU memory signals */
-//   .mem_read(i_mem_read),
-//   .mem_write(i_mem_write),
-//   .mem_byte_enable_cpu(4'b1111),
-//   .mem_address(i_mem_address),
-//   .mem_wdata_cpu(i_mem_wdata),
-//   .mem_resp(i_mem_resp),
-//   .mem_rdata_cpu(i_mem_rdata)
-// );
+  /* CPU memory signals */
+  .mem_read(d_mem_read),
+  .mem_write(d_mem_write),
+  .mem_byte_enable_cpu(d_mem_byte_enable),
+  .mem_address(d_mem_address),
+  .mem_wdata_cpu(d_mem_wdata),
+  .mem_resp(d_mem_resp),
+  .mem_rdata_cpu(d_mem_rdata)
+);
+
+given_cache i_cache (
+  .clk(clk),
+
+  /* Physical memory signals */
+  .pmem_resp(i_pmem_resp),
+  .pmem_rdata(i_pmem_rdata),
+  .pmem_address(i_pmem_address),
+  .pmem_wdata(i_pmem_wdata),
+  .pmem_read(i_pmem_read),
+  .pmem_write(i_pmem_write),
+
+  /* CPU memory signals */
+  .mem_read(i_mem_read),
+  .mem_write(i_mem_write),
+  .mem_byte_enable_cpu(4'b1111),
+  .mem_address(i_mem_address),
+  .mem_wdata_cpu(i_mem_wdata),
+  .mem_resp(i_mem_resp),
+  .mem_rdata_cpu(i_mem_rdata)
+);
+
 end
 
 
 if (L2_CACHE == 1) begin
-l2cache _l2cache (
+l2cache_wide _l2cache (
     .clk(clk),
     .rst(rst),
 

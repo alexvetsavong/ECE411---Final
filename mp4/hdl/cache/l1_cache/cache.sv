@@ -1,13 +1,6 @@
 import rv32i_types::*;
 
-module cache #(
-    parameter s_offset = 5,
-    parameter s_index  = 3,
-    parameter s_tag    = 32 - s_offset - s_index,
-    parameter s_mask   = 2**s_offset,
-    parameter s_line   = 8*s_mask,
-    parameter num_sets = 2**s_index
-)
+module cache 
 (
     input clk,
     input rst,
@@ -44,7 +37,6 @@ logic way_sel;
 logic [1:0] write_sel;
 logic [1:0] load_valid;
 logic load_way_reg;
-logic [1:0] read_data_array;
 logic [255:0] mem_wdata256;
 logic [31:0] mem_byte_enable256;
 
@@ -71,8 +63,7 @@ cache_control control
 	.load_valid (load_valid),
 	.set_valid (set_valid),
 	.load_tag (load_tag),
-	.load_way_reg (load_way_reg),
-	.read_data_array (read_data_array)
+	.load_way_reg (load_way_reg)
 );
 
 cache_datapath datapath
@@ -98,8 +89,7 @@ cache_datapath datapath
 	.load_valid (load_valid),
 	.set_valid (set_valid),
 	.load_tag (load_tag),
-	.load_way_reg (load_way_reg),
-	.read_data_array (read_data_array)
+	.load_way_reg (load_way_reg)
 );
 
 bus_adapter bus_adapter
