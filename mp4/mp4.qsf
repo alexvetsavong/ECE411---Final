@@ -70,6 +70,7 @@ set_global_assignment -name PARTITION_COLOR 16764057 -section_id Top
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/wallace/mult_types.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/wallace/add_shift_multiplier_64.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/wallace/divider.sv
+set_global_assignment -name SDC_FILE mp4.out.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/given_cache/line_adapter.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/given_cache/data_array.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/given_cache/cache_datapath.sv
@@ -95,7 +96,6 @@ set_global_assignment -name SYSTEMVERILOG_FILE hdl/cache/cache_top.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/cache/bus_adapter.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/cache/array.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/cache/arbiter.sv
-set_global_assignment -name SDC_FILE mp4.sdc
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/ctrl_reg.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/cmp.sv
 set_global_assignment -name SYSTEMVERILOG_FILE hdl/processor/datapath.sv
