@@ -1,4 +1,4 @@
-## Generated SDC file "mp4.sdc"
+## Generated SDC file "mp4.out.sdc"
 
 ## Copyright (C) 2018  Intel Corporation. All rights reserved.
 ## Your use of Intel Corporation's design tools, logic functions 
